@@ -218,10 +218,15 @@ export default function DebateRoomPage() {
                 )}
               </div>
 
-              {/* Opponent's opening speech — only visible after both have submitted */}
+              {/* Opponent's opening speech — hidden until YOU submit yours, so you
+                  can't read their argument before making your own (fair debate). */}
               <div>
                 <p className="text-sm text-gray-500 mb-2">Opponent's speech</p>
-                {opponentRound1Speech ? (
+                {!myRound1Speech ? (
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-sm text-gray-600 italic">
+                    Submit your own speech to reveal your opponent's.
+                  </div>
+                ) : opponentRound1Speech ? (
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-sm text-gray-300">
                     <p>{opponentRound1Speech.transcript}</p>
                   </div>
@@ -263,10 +268,14 @@ export default function DebateRoomPage() {
                 )}
               </div>
 
-              {/* Opponent's rebuttal */}
+              {/* Opponent's rebuttal — same gate: hidden until you submit yours. */}
               <div>
                 <p className="text-sm text-gray-500 mb-2">Opponent's rebuttal</p>
-                {opponentRound2Speech ? (
+                {!myRound2Speech ? (
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-sm text-gray-600 italic">
+                    Submit your own rebuttal to reveal your opponent's.
+                  </div>
+                ) : opponentRound2Speech ? (
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-sm text-gray-300">
                     <p>{opponentRound2Speech.transcript}</p>
                   </div>

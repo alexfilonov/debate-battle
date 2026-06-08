@@ -15,14 +15,31 @@ export default async function DashboardPage() {
   // If somehow not logged in, send back to home
   if (!user) redirect('/')
 
-  // Fetch all debates this user created or participated in
+  // Step 1: find every debate this user takes part in.
+  // PostgREST's `id.in.(...)` only accepts a literal list of values, not a SQL
+  // sub-select, so we first fetch the user's participant rows to get the IDs.
+  // (The creator is always inserted as a participant when a debate is created,
+  // so this also covers debates this user started.)
+  const { data: participantRows } = await supabase
+    .from('debate_participants')
+    .select('debate_id')
+    .eq('user_id', user.id)
+
+  const debateIds = participantRows?.map((row) => row.debate_id) ?? []
+
+  // Step 2: fetch those debates. Build an `or` filter so we still catch debates
+  // the user created even if their participant row somehow failed to insert.
+  // `created_by.eq` always applies; the `id.in.(...)` clause is only added when
+  // we actually have IDs (an empty `in.()` list is invalid syntax).
+  const orFilter =
+    debateIds.length > 0
+      ? `created_by.eq.${user.id},id.in.(${debateIds.join(',')})`
+      : `created_by.eq.${user.id}`
+
   const { data: debates } = await supabase
     .from('debates')
     .select('*')
-    .or(`created_by.eq.${user.id},id.in.(${
-      // Sub-select: get debate IDs where this user is a participant
-      `select debate_id from debate_participants where user_id = '${user.id}'`
-    })`)
+    .or(orFilter)
     .order('created_at', { ascending: false })
 
   return (

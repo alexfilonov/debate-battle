@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -10,6 +8,12 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 // Accepts a speech audio file, uploads it to Supabase storage,
 // transcribes it with Whisper, and saves the result to the speeches table.
 export async function POST(request: Request) {
+  // This client carries the signed-in user's JWT (read from cookies). We use it
+  // for both the storage upload and the DB insert because:
+  //  - The Storage API rejects the new sb_secret service-role key format
+  //    ("Invalid Compact JWS"), but accepts a user JWT.
+  //  - RLS policies (docs/schema.sql) already permit a participant to upload
+  //    into their debate folder and insert their own speech row.
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -24,12 +28,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  // Upload the audio file to Supabase private storage
+  // Upload the audio file to Supabase private storage.
   // File path: speeches/{debateId}/{userId}-round{round}.webm
+  // upsert: true so re-recording a round overwrites the previous take.
   const filePath = `${debateId}/${user.id}-round${round}.webm`
   const { error: uploadError } = await supabase.storage
     .from('speeches')
-    .upload(filePath, audioFile, { upsert: false })
+    .upload(filePath, audioFile, { upsert: true })
 
   if (uploadError) {
     return NextResponse.json({ error: 'Failed to upload audio' }, { status: 500 })
@@ -42,27 +47,8 @@ export async function POST(request: Request) {
     model: 'whisper-1',
   })
 
-  // Use service role to bypass RLS for inserting the speech record
-  const cookieStore = await cookies()
-  const adminClient = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {}
-        },
-      },
-    }
-  )
-
   // Save the speech record with the audio path and transcript
-  const { error: speechError } = await adminClient
+  const { error: speechError } = await supabase
     .from('speeches')
     .insert({
       debate_id: debateId,
