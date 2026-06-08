@@ -10,6 +10,23 @@ type Props = {
   onSubmitted: (transcript: string) => void
 }
 
+// Browsers disagree on audio formats: Chrome/Firefox record WebM, but iOS Safari
+// only records MP4. Pick the first format the current device supports so
+// recording works on every phone/browser. Whisper accepts all of these.
+const MIME_CANDIDATES = ['audio/webm', 'audio/mp4', 'audio/ogg']
+
+function pickSupportedMimeType(): string {
+  if (typeof MediaRecorder === 'undefined') return ''
+  return MIME_CANDIDATES.find((t) => MediaRecorder.isTypeSupported(t)) ?? ''
+}
+
+// Map a MIME type to the file extension Whisper expects.
+function extensionForMime(mime: string): string {
+  if (mime.includes('mp4')) return 'mp4'
+  if (mime.includes('ogg')) return 'ogg'
+  return 'webm'
+}
+
 // SpeechRecorder handles the full recording flow:
 // 1. User clicks record → mic starts, 2-minute countdown begins
 // 2. Timer hits 0 OR user clicks stop → recording ends automatically
@@ -40,8 +57,12 @@ export default function SpeechRecorder({ debateId, round, onSubmitted }: Props) 
     })
     if (!stream) return
 
-    // Set up the MediaRecorder to capture audio in chunks
-    const recorder = new MediaRecorder(stream)
+    // Set up the MediaRecorder using a format this browser actually supports
+    // (iOS Safari can't do WebM); fall back to the browser default if needed.
+    const mimeType = pickSupportedMimeType()
+    const recorder = mimeType
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream)
     mediaRecorderRef.current = recorder
     chunksRef.current = []
 
@@ -81,9 +102,12 @@ export default function SpeechRecorder({ debateId, round, onSubmitted }: Props) 
   async function submitAudio() {
     setState('submitting')
 
-    // Combine all audio chunks into one Blob (WebM format)
-    const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
-    const audioFile = new File([audioBlob], `speech-round${round}.webm`, { type: 'audio/webm' })
+    // Build the file from the recorder's ACTUAL format (+ matching extension),
+    // so the server and Whisper get a correctly-labeled file on every device.
+    const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm'
+    const ext = extensionForMime(mimeType)
+    const audioBlob = new Blob(chunksRef.current, { type: mimeType })
+    const audioFile = new File([audioBlob], `speech-round${round}.${ext}`, { type: mimeType })
 
     // Send to our transcription API route
     const form = new FormData()

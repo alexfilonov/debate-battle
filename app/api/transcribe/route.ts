@@ -28,24 +28,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
+  // Derive the extension from the uploaded file so the stored object and Whisper
+  // both see the right format (phones often send mp4, not webm).
+  const ext = (audioFile.name.split('.').pop() || 'webm').toLowerCase()
+
   // Upload the audio file to Supabase private storage.
-  // File path: speeches/{debateId}/{userId}-round{round}.webm
+  // File path: speeches/{debateId}/{userId}-round{round}.{ext}
   // upsert: true so re-recording a round overwrites the previous take.
-  const filePath = `${debateId}/${user.id}-round${round}.webm`
+  const filePath = `${debateId}/${user.id}-round${round}.${ext}`
   const { error: uploadError } = await supabase.storage
     .from('speeches')
     .upload(filePath, audioFile, { upsert: true })
 
   if (uploadError) {
+    console.error('[transcribe] upload failed:', uploadError)
     return NextResponse.json({ error: 'Failed to upload audio' }, { status: 500 })
   }
 
-  // Transcribe the audio using OpenAI Whisper
-  // Whisper expects a File-like object with a name property
-  const transcription = await openai.audio.transcriptions.create({
-    file: audioFile,
-    model: 'whisper-1',
-  })
+  // Transcribe the audio using OpenAI Whisper.
+  // Whisper expects a File-like object with a name (extension) it recognizes.
+  let transcription
+  try {
+    transcription = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-1',
+    })
+  } catch (err) {
+    console.error('[transcribe] whisper failed:', err)
+    return NextResponse.json({ error: 'Transcription failed' }, { status: 502 })
+  }
 
   // Save the speech record with the audio path and transcript
   const { error: speechError } = await supabase
@@ -59,6 +70,7 @@ export async function POST(request: Request) {
     })
 
   if (speechError) {
+    console.error('[transcribe] db insert failed:', speechError)
     return NextResponse.json({ error: 'Failed to save speech' }, { status: 500 })
   }
 
