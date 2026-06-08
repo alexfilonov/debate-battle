@@ -43,5 +43,13 @@ export type Judgement = {
   reasoning: string
   affirmative_feedback: string
   negative_feedback: string
+  // Per-category 1-10 scores set by the AI judge. Nullable because judgements
+  // created before scores existed don't have them.
+  aff_argumentation: number | null
+  aff_evidence: number | null
+  aff_rebuttal: number | null
+  neg_argumentation: number | null
+  neg_evidence: number | null
+  neg_rebuttal: number | null
   created_at: string
 }

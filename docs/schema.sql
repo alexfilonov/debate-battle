@@ -42,6 +42,13 @@ create table judgements (
   reasoning text not null,            -- overall explanation of the decision
   affirmative_feedback text not null, -- specific feedback for affirmative speaker
   negative_feedback text not null,    -- specific feedback for negative speaker
+  -- Per-category 1-10 scores from the AI judge (nullable: predate the scores feature)
+  aff_argumentation smallint,
+  aff_evidence smallint,
+  aff_rebuttal smallint,
+  neg_argumentation smallint,
+  neg_evidence smallint,
+  neg_rebuttal smallint,
   created_at timestamp with time zone default now()
 );
 

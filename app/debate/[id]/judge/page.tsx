@@ -161,6 +161,9 @@ export default function JudgePage() {
           </p>
         </div>
 
+        {/* Per-category score breakdown */}
+        <ScoreBreakdown judgement={judgement} />
+
         {/* Judge's reasoning — why they picked this winner */}
         <section>
           <h2 className="text-xs text-gray-500 uppercase tracking-wide mb-3">Judge's Reasoning</h2>
@@ -194,6 +197,59 @@ export default function JudgePage() {
 
       </main>
     </div>
+  )
+}
+
+// Per-category score comparison (1-10 per dimension for each side) with totals.
+// Renders nothing for older judgements that predate the scores feature.
+function ScoreBreakdown({ judgement }: { judgement: Judgement }) {
+  // Scores are all set together, so checking one is enough to know they exist.
+  if (judgement.aff_argumentation == null) return null
+
+  // One row per scoring dimension, pulling the matching pair of columns.
+  const rows = [
+    { label: 'Argumentation', aff: judgement.aff_argumentation, neg: judgement.neg_argumentation },
+    { label: 'Evidence', aff: judgement.aff_evidence, neg: judgement.neg_evidence },
+    { label: 'Rebuttal', aff: judgement.aff_rebuttal, neg: judgement.neg_rebuttal },
+  ]
+  const affTotal = rows.reduce((sum, r) => sum + (r.aff ?? 0), 0)
+  const negTotal = rows.reduce((sum, r) => sum + (r.neg ?? 0), 0)
+
+  // Render a score, bold green when it's the higher of the two for that row.
+  const cell = (value: number | null, isHigher: boolean) => (
+    <span className={`text-right ${isHigher ? 'font-bold text-green-400' : 'text-gray-300'}`}>
+      {value}
+    </span>
+  )
+
+  return (
+    <section>
+      <h2 className="text-xs text-gray-500 uppercase tracking-wide mb-3">Scores</h2>
+      <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4">
+        {/* Column headers */}
+        <div className="grid grid-cols-[1fr_6rem_6rem] text-xs uppercase tracking-wide mb-3">
+          <span />
+          <span className="text-blue-400 text-right">Affirmative</span>
+          <span className="text-orange-400 text-right">Negative</span>
+        </div>
+
+        {/* One row per dimension */}
+        {rows.map((r) => (
+          <div key={r.label} className="grid grid-cols-[1fr_6rem_6rem] text-sm py-1.5">
+            <span className="text-gray-400">{r.label}</span>
+            {cell(r.aff, (r.aff ?? 0) > (r.neg ?? 0))}
+            {cell(r.neg, (r.neg ?? 0) > (r.aff ?? 0))}
+          </div>
+        ))}
+
+        {/* Totals */}
+        <div className="grid grid-cols-[1fr_6rem_6rem] text-sm pt-3 mt-2 border-t border-gray-800 font-semibold">
+          <span className="text-gray-300">Total</span>
+          {cell(affTotal, affTotal > negTotal)}
+          {cell(negTotal, negTotal > affTotal)}
+        </div>
+      </div>
+    </section>
   )
 }
 

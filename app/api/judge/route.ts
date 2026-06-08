@@ -79,14 +79,21 @@ ${affRebuttal}
 --- NEGATIVE REBUTTAL (Round 2) ---
 ${negRebuttal}
 
-Judge the debate based on argument quality, evidence, logical consistency, and rebuttal effectiveness.
+Score EACH debater from 1 to 10 on three dimensions:
+- argumentation: clarity, structure, and strength of their arguments
+- evidence: use of evidence, examples, and logical reasoning
+- rebuttal: how directly and effectively they engaged with and refuted the opponent
 
-Respond with ONLY a valid JSON object in this exact format, no explanation outside the JSON:
+Respond with ONLY a valid JSON object in this exact format, no explanation outside the JSON. The "winner" MUST be the side with the higher total score (argumentation + evidence + rebuttal):
 {
   "winner": "affirmative" or "negative",
   "reasoning": "2-4 sentence explanation of why this side won the debate overall",
   "affirmative_feedback": "2-4 sentences of specific, constructive feedback for the affirmative debater",
-  "negative_feedback": "2-4 sentences of specific, constructive feedback for the negative debater"
+  "negative_feedback": "2-4 sentences of specific, constructive feedback for the negative debater",
+  "scores": {
+    "affirmative": { "argumentation": <1-10>, "evidence": <1-10>, "rebuttal": <1-10> },
+    "negative": { "argumentation": <1-10>, "evidence": <1-10>, "rebuttal": <1-10> }
+  }
 }`,
       },
     ],
@@ -105,6 +112,10 @@ Respond with ONLY a valid JSON object in this exact format, no explanation outsi
     reasoning: string
     affirmative_feedback: string
     negative_feedback: string
+    scores: {
+      affirmative: { argumentation: number; evidence: number; rebuttal: number }
+      negative: { argumentation: number; evidence: number; rebuttal: number }
+    }
   }
   try {
     // Strip any markdown code fences Claude might wrap the JSON in
@@ -134,6 +145,12 @@ Respond with ONLY a valid JSON object in this exact format, no explanation outsi
       reasoning: verdict.reasoning,
       affirmative_feedback: verdict.affirmative_feedback,
       negative_feedback: verdict.negative_feedback,
+      aff_argumentation: verdict.scores.affirmative.argumentation,
+      aff_evidence: verdict.scores.affirmative.evidence,
+      aff_rebuttal: verdict.scores.affirmative.rebuttal,
+      neg_argumentation: verdict.scores.negative.argumentation,
+      neg_evidence: verdict.scores.negative.evidence,
+      neg_rebuttal: verdict.scores.negative.rebuttal,
     })
     .select()
     .single()
