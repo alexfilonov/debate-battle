@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
-import type { Judgement } from '@/lib/supabase'
+import type { Judgement, ClashPoint, ClashResponse, SideAnalysis, Side } from '@/lib/supabase'
 
 type PageState = 'loading' | 'judging' | 'done' | 'error'
 
 // The judge page has two jobs:
 // 1. Trigger the AI judging if it hasn't happened yet (calls /api/judge)
-// 2. Display the verdict — winner, reasoning, and the current user's personal feedback
+// 2. Display the verdict dashboard — winner, scores, clash map, and feedback
 export default function JudgePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -17,6 +17,7 @@ export default function JudgePage() {
   const [pageState, setPageState] = useState<PageState>('loading')
   const [judgement, setJudgement] = useState<Judgement | null>(null)
   const [myFeedback, setMyFeedback] = useState<string>('')
+  const [mySide, setMySide] = useState<Side | null>(null)
   const [iWon, setIWon] = useState<boolean | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
@@ -34,7 +35,7 @@ export default function JudgePage() {
         .eq('user_id', user.id)
         .single()
 
-      const mySide = participant?.side ?? null
+      const side = (participant?.side ?? null) as Side | null
 
       // Check if a judgement already exists (e.g. opponent triggered it first)
       const { data: existing } = await supabase
@@ -44,7 +45,7 @@ export default function JudgePage() {
         .single()
 
       if (existing) {
-        displayResult(existing, mySide)
+        displayResult(existing, side)
         return
       }
 
@@ -64,19 +65,18 @@ export default function JudgePage() {
       }
 
       const { judgement: newJudgement } = await res.json()
-      displayResult(newJudgement, mySide)
+      displayResult(newJudgement, side)
     }
 
     // Populate state from a judgement record + the user's side
-    function displayResult(j: Judgement, mySide: string | null) {
+    function displayResult(j: Judgement, side: Side | null) {
       setJudgement(j)
+      setMySide(side)
 
-      if (mySide) {
-        // Show the feedback written specifically for this user's side
-        setMyFeedback(
-          mySide === 'affirmative' ? j.affirmative_feedback : j.negative_feedback
-        )
-        setIWon(j.winner === mySide)
+      if (side) {
+        // Show the narrative feedback written for this user's side
+        setMyFeedback(side === 'affirmative' ? j.affirmative_feedback : j.negative_feedback)
+        setIWon(j.winner === side)
       }
 
       setPageState('done')
@@ -137,6 +137,11 @@ export default function JudgePage() {
     iWon === false ? 'text-red-400 border-red-800 bg-red-900/20' :
                     'text-white border-gray-700 bg-gray-900'
 
+  // The structured analysis written for the current user's side (if any)
+  const myAnalysis =
+    mySide === 'affirmative' ? judgement.aff_analysis :
+    mySide === 'negative'    ? judgement.neg_analysis : null
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
 
@@ -156,13 +161,8 @@ export default function JudgePage() {
         {/* Winner banner */}
         <div className={`rounded-2xl border px-6 py-8 text-center ${outcomeStyles}`}>
           <p className="text-4xl font-bold mb-2">{outcomeLabel}</p>
-          <p className="text-sm opacity-70">
-            The {judgement.winner} side wins this debate
-          </p>
+          <p className="text-sm opacity-70">The {judgement.winner} side wins this debate</p>
         </div>
-
-        {/* Per-category score breakdown */}
-        <ScoreBreakdown judgement={judgement} />
 
         {/* Judge's reasoning — why they picked this winner */}
         <section>
@@ -172,17 +172,28 @@ export default function JudgePage() {
           </div>
         </section>
 
+        {/* Category score bar chart */}
+        <ScoreChart judgement={judgement} />
+
+        {/* Clash map — each side's points + how the opponent answered them */}
+        <ClashMap judgement={judgement} />
+
         {/* Personalized feedback for this user */}
-        {myFeedback && (
+        {(myFeedback || myAnalysis) && (
           <section>
             <h2 className="text-xs text-gray-500 uppercase tracking-wide mb-3">Your Feedback</h2>
-            <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 text-gray-300 text-sm leading-relaxed">
-              {myFeedback}
+            <div className="flex flex-col gap-3">
+              {myFeedback && (
+                <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 text-gray-300 text-sm leading-relaxed">
+                  {myFeedback}
+                </div>
+              )}
+              <FeedbackPanel analysis={myAnalysis} />
             </div>
           </section>
         )}
 
-        {/* Feedback for both sides (collapsed under a toggle) */}
+        {/* Both sides' feedback (collapsed under a toggle) */}
         <FullFeedback judgement={judgement} />
 
         {/* CTA back to dashboard */}
@@ -200,60 +211,143 @@ export default function JudgePage() {
   )
 }
 
-// Per-category score comparison (1-10 per dimension for each side) with totals.
-// Renders nothing for older judgements that predate the scores feature.
-function ScoreBreakdown({ judgement }: { judgement: Judgement }) {
-  // Scores are all set together, so checking one is enough to know they exist.
+// ── Dashboard components ──────────────────────────────────────────
+
+// Horizontal bar chart of the 1-10 scores per dimension for both sides.
+// Renders nothing for older judgements that predate scoring.
+function ScoreChart({ judgement }: { judgement: Judgement }) {
   if (judgement.aff_argumentation == null) return null
 
-  // One row per scoring dimension, pulling the matching pair of columns.
   const rows = [
     { label: 'Argumentation', aff: judgement.aff_argumentation, neg: judgement.neg_argumentation },
     { label: 'Evidence', aff: judgement.aff_evidence, neg: judgement.neg_evidence },
     { label: 'Rebuttal', aff: judgement.aff_rebuttal, neg: judgement.neg_rebuttal },
   ]
-  const affTotal = rows.reduce((sum, r) => sum + (r.aff ?? 0), 0)
-  const negTotal = rows.reduce((sum, r) => sum + (r.neg ?? 0), 0)
+  const affTotal = rows.reduce((s, r) => s + (r.aff ?? 0), 0)
+  const negTotal = rows.reduce((s, r) => s + (r.neg ?? 0), 0)
 
-  // Render a score, bold green when it's the higher of the two for that row.
-  const cell = (value: number | null, isHigher: boolean) => (
-    <span className={`text-right ${isHigher ? 'font-bold text-green-400' : 'text-gray-300'}`}>
-      {value}
-    </span>
+  // A single bar: filled to value/10 of the width, with the number beside it.
+  const bar = (value: number | null, color: string) => (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${(value ?? 0) * 10}%` }} />
+      </div>
+      <span className="w-4 text-right text-xs text-gray-300">{value}</span>
+    </div>
   )
 
   return (
     <section>
       <h2 className="text-xs text-gray-500 uppercase tracking-wide mb-3">Scores</h2>
-      <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4">
-        {/* Column headers */}
-        <div className="grid grid-cols-[1fr_6rem_6rem] text-xs uppercase tracking-wide mb-3">
-          <span />
-          <span className="text-blue-400 text-right">Affirmative</span>
-          <span className="text-orange-400 text-right">Negative</span>
+      <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 flex flex-col gap-4">
+        {/* Legend with totals */}
+        <div className="flex gap-4 text-xs">
+          <span className="text-blue-400">● Affirmative · {affTotal}/30</span>
+          <span className="text-orange-400">● Negative · {negTotal}/30</span>
         </div>
 
-        {/* One row per dimension */}
         {rows.map((r) => (
-          <div key={r.label} className="grid grid-cols-[1fr_6rem_6rem] text-sm py-1.5">
-            <span className="text-gray-400">{r.label}</span>
-            {cell(r.aff, (r.aff ?? 0) > (r.neg ?? 0))}
-            {cell(r.neg, (r.neg ?? 0) > (r.aff ?? 0))}
+          <div key={r.label}>
+            <p className="text-xs text-gray-400 mb-1.5">{r.label}</p>
+            <div className="flex flex-col gap-1.5">
+              {bar(r.aff, 'bg-blue-500')}
+              {bar(r.neg, 'bg-orange-500')}
+            </div>
           </div>
         ))}
-
-        {/* Totals */}
-        <div className="grid grid-cols-[1fr_6rem_6rem] text-sm pt-3 mt-2 border-t border-gray-800 font-semibold">
-          <span className="text-gray-300">Total</span>
-          {cell(affTotal, affTotal > negTotal)}
-          {cell(negTotal, negTotal > affTotal)}
-        </div>
       </div>
     </section>
   )
 }
 
-// Collapsible section showing both sides' feedback — useful when reviewing a debate
+// Badge styling per clash status, labeled from the POINT-MAKER's perspective:
+// a dropped point stood unanswered (good for the maker); a refuted point fell.
+const RESPONSE_META: Record<ClashResponse, { label: string; badge: string }> = {
+  dropped: { label: 'Unanswered', badge: 'bg-green-900/40 text-green-300 border-green-800' },
+  partial: { label: 'Partly answered', badge: 'bg-yellow-900/40 text-yellow-300 border-yellow-800' },
+  refuted: { label: 'Refuted', badge: 'bg-red-900/40 text-red-300 border-red-800' },
+}
+
+// Clash map: each side's arguments and how well the opponent answered them,
+// plus a small scoreboard. Renders nothing if the judgement has no points.
+function ClashMap({ judgement }: { judgement: Judgement }) {
+  if (!judgement.aff_points && !judgement.neg_points) return null
+
+  return (
+    <section>
+      <h2 className="text-xs text-gray-500 uppercase tracking-wide mb-3">Clash Map</h2>
+      <div className="flex flex-col gap-4">
+        <SidePoints label="Affirmative" color="text-blue-400" points={judgement.aff_points} />
+        <SidePoints label="Negative" color="text-orange-400" points={judgement.neg_points} />
+      </div>
+    </section>
+  )
+}
+
+// One side's points with status badges + a scoreboard line.
+function SidePoints({ label, color, points }: { label: string; color: string; points: ClashPoint[] | null }) {
+  if (!points || points.length === 0) return null
+
+  // Scoreboard counts by response status.
+  const counts = { refuted: 0, partial: 0, dropped: 0 }
+  points.forEach((p) => { if (p.response in counts) counts[p.response] += 1 })
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4">
+      <div className="flex items-center justify-between mb-3 gap-3">
+        <p className={`text-sm font-semibold ${color}`}>{`${label}'s points`}</p>
+        <p className="text-xs text-gray-500 text-right">
+          {points.length} raised · {counts.dropped} unanswered · {counts.refuted} refuted
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {points.map((p, i) => {
+          const meta = RESPONSE_META[p.response] ?? RESPONSE_META.partial
+          return (
+            <div key={i} className="text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-gray-200">{p.point}</span>
+                <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full border ${meta.badge}`}>
+                  {meta.label}
+                </span>
+              </div>
+              {p.note && <p className="text-xs text-gray-500 mt-1">{p.note}</p>}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Strength / growth area / concrete suggestions for one debater.
+function FeedbackPanel({ analysis }: { analysis: SideAnalysis | null }) {
+  if (!analysis) return null
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 flex flex-col gap-3 text-sm">
+      <div>
+        <p className="text-xs text-green-400 uppercase tracking-wide mb-1">Strength</p>
+        <p className="text-gray-300">{analysis.strength}</p>
+      </div>
+      <div>
+        <p className="text-xs text-yellow-400 uppercase tracking-wide mb-1">Work on</p>
+        <p className="text-gray-300">{analysis.growth}</p>
+      </div>
+      {analysis.suggestions?.length > 0 && (
+        <div>
+          <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">How to strengthen it</p>
+          <ul className="list-disc list-inside text-gray-300 flex flex-col gap-1">
+            {analysis.suggestions.map((s, i) => <li key={i}>{s}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Collapsible section showing both sides' full feedback — useful when reviewing.
 function FullFeedback({ judgement }: { judgement: Judgement }) {
   const [open, setOpen] = useState(false)
 
@@ -263,22 +357,24 @@ function FullFeedback({ judgement }: { judgement: Judgement }) {
         onClick={() => setOpen(o => !o)}
         className="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1 hover:text-gray-300 transition-colors"
       >
-        {open ? '▾' : '▸'} Full Feedback
+        {open ? '▾' : '▸'} Full Feedback (both sides)
       </button>
 
       {open && (
-        <div className="mt-3 flex flex-col gap-4">
-          <div>
-            <p className="text-xs text-blue-400 mb-2">Affirmative</p>
+        <div className="mt-3 flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-blue-400">Affirmative</p>
             <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 text-gray-300 text-sm leading-relaxed">
               {judgement.affirmative_feedback}
             </div>
+            <FeedbackPanel analysis={judgement.aff_analysis} />
           </div>
-          <div>
-            <p className="text-xs text-orange-400 mb-2">Negative</p>
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-orange-400">Negative</p>
             <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 text-gray-300 text-sm leading-relaxed">
               {judgement.negative_feedback}
             </div>
+            <FeedbackPanel analysis={judgement.neg_analysis} />
           </div>
         </div>
       )}
