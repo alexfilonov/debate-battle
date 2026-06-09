@@ -1,8 +1,28 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, Suspense, type CSSProperties } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
+
+const titleStyle: CSSProperties = {
+  fontSize: 'clamp(3.5rem, 9vw, 6rem)',
+  lineHeight: 0.9,
+  fontWeight: 900,
+  marginBottom: '20px',
+  letterSpacing: '-0.08em',
+  whiteSpace: 'nowrap',
+  background: `linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #d1d5db 35%,
+    #8b5cf6 70%,
+    #38bdf8 100%
+  )`,
+  WebkitBackgroundClip: 'text',
+  backgroundClip: 'text',
+  color: 'transparent',
+  textShadow: '0 0 40px rgba(139, 92, 246, 0.25)',
+}
 
 // useSearchParams() requires a Suspense boundary in Next.js, so we split
 // the page into an inner component (which reads params) and an outer wrapper.
@@ -38,7 +58,7 @@ function LandingPageInner() {
       <div className="max-w-lg w-full text-center">
 
         {/* App name and tagline */}
-        <h1 className="text-5xl font-bold text-white mb-4">
+        <h1 style={titleStyle}>
           Debate Battle
         </h1>
         <p className="text-xl text-gray-400 mb-2">
