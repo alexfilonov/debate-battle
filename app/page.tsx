@@ -10,7 +10,9 @@ const titleStyle: CSSProperties = {
   fontWeight: 900,
   marginBottom: '20px',
   letterSpacing: '-0.08em',
-  whiteSpace: 'nowrap',
+  // Wrap to a second line on narrow screens instead of overflowing the edge;
+  // stays on one line wherever it fits.
+  whiteSpace: 'normal',
   background: `linear-gradient(
     135deg,
     #ffffff 0%,
