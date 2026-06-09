@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { createSupabaseAdminClient } from '@/lib/supabase-admin'
+import { sendYourTurnEmail } from '@/lib/email'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -72,6 +74,45 @@ export async function POST(request: Request) {
   if (speechError) {
     console.error('[transcribe] db insert failed:', speechError)
     return NextResponse.json({ error: 'Failed to save speech' }, { status: 500 })
+  }
+
+  // Best-effort: email the opponent that it's their turn. A notification failure
+  // must never fail the request — the speech is already saved.
+  try {
+    const admin = createSupabaseAdminClient()
+
+    // Skip if the debate is now finished: 4 speeches (2 rounds x 2 people) means
+    // there's no turn left for the opponent, just judging.
+    const { count } = await admin
+      .from('speeches')
+      .select('*', { count: 'exact', head: true })
+      .eq('debate_id', debateId)
+
+    if ((count ?? 0) < 4) {
+      // Find the opponent (the other participant) and look up their email.
+      const { data: others } = await admin
+        .from('debate_participants')
+        .select('user_id')
+        .eq('debate_id', debateId)
+        .neq('user_id', user.id)
+
+      const opponentId = others?.[0]?.user_id
+      if (opponentId) {
+        const { data: opp } = await admin.auth.admin.getUserById(opponentId)
+        const opponentEmail = opp.user?.email
+
+        if (opponentEmail) {
+          const { data: debate } = await admin
+            .from('debates')
+            .select('resolution')
+            .eq('id', debateId)
+            .single()
+          await sendYourTurnEmail(opponentEmail, debateId, debate?.resolution ?? 'your debate')
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[transcribe] turn notification failed (non-fatal):', err)
   }
 
   return NextResponse.json({ transcript: transcription.text })
