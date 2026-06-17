@@ -47,7 +47,9 @@ export default async function DashboardPage() {
 
       {/* Top navigation bar */}
       <nav className="border-b border-gray-800 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">Debate Battle</h1>
+        <h1 className="text-xl font-bold tracking-wide" style={{ fontFamily: 'var(--font-bebas)', fontSize: '1.6rem', letterSpacing: '0.03em' }}>
+          debatable<span style={{ color: '#e11d48' }}>.</span>
+        </h1>
         <div className="flex items-center gap-4">
           <span className="text-gray-400 text-sm">{user.email}</span>
           <SignOutButton />
