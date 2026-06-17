@@ -4,6 +4,9 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 
+// ─── Rotating debate questions ────────────────────────────────────────────────
+// Displayed above the title and typed out one character at a time on page load.
+// Intentionally lighthearted — they set the tone before the user signs in.
 const QUESTIONS = [
   'Is a hot dog a sandwich?',
   'Is cereal a soup?',
@@ -78,9 +81,13 @@ const QUESTIONS = [
   'Was Socrates actually wise?',
 ]
 
+// SessionStorage keys for the shuffle queue.
+// We persist the queue across page refreshes so all questions cycle through
+// before any repeat — like a shuffled playlist.
 const QUEUE_KEY = 'debatable_queue'
 const INDEX_KEY = 'debatable_index'
 
+// Fisher-Yates shuffle: produces an unbiased random ordering of the array.
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
@@ -90,6 +97,9 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
+// Returns the next question from the sessionStorage shuffle queue.
+// When the queue is exhausted it reshuffles automatically.
+// Falls back to a random pick if sessionStorage is unavailable (e.g. private browsing).
 function getNextQuestion(): string {
   try {
     let queue: string[] = JSON.parse(sessionStorage.getItem(QUEUE_KEY) ?? 'null') ?? []
@@ -107,24 +117,32 @@ function getNextQuestion(): string {
   }
 }
 
+// ─── Landing page ─────────────────────────────────────────────────────────────
+// Wrapped in <Suspense> because useSearchParams() requires it in the Next.js app router.
 function LandingPageInner() {
   const [loading, setLoading] = useState(false)
   const [question, setQuestion] = useState<string | null>(null)
-  const [displayedChars, setDisplayedChars] = useState(0)
-  const [revealed, setRevealed] = useState(false)
-  const [scrollUnlocked, setScrollUnlocked] = useState(false)
+  const [displayedChars, setDisplayedChars] = useState(0)     // how many characters have typed out so far
+  const [revealed, setRevealed] = useState(false)             // true once the user clicks the arrow
+  const [scrollUnlocked, setScrollUnlocked] = useState(false) // true once the reveal animation finishes
   const searchParams = useSearchParams()
 
+  // After the arrow is clicked, wait for the reveal animation to finish (~950ms)
+  // before removing the maxHeight cap. Without this delay, the page briefly flashes
+  // a scrollbar as the below-fold content becomes visible mid-animation.
   useEffect(() => {
     if (!revealed) return
     const t = setTimeout(() => setScrollUnlocked(true), 950)
     return () => clearTimeout(t)
   }, [revealed])
 
+  // Pick a question on mount. Must run client-side because sessionStorage
+  // doesn't exist on the server.
   useEffect(() => {
     setQuestion(getNextQuestion())
   }, [])
 
+  // Typewriter effect: reveal one character every 38ms until the full question is shown.
   useEffect(() => {
     if (!question) return
     setDisplayedChars(0)
@@ -137,12 +155,15 @@ function LandingPageInner() {
     return () => clearInterval(interval)
   }, [question])
 
+  // Parse any auth error codes the OAuth callback passes back via URL params.
   const urlError = searchParams.get('error')
   let errorMessage: string | null = null
   if (urlError === 'not_allowed') errorMessage = 'Your email is not on the access list.'
   else if (urlError === 'auth_failed') errorMessage = 'Sign in failed. Please try again.'
   else if (urlError === 'missing_code') errorMessage = 'Something went wrong. Please try again.'
 
+  // Kicks off the Google OAuth flow. On success the browser redirects to /auth/callback,
+  // which validates the session and sends the user to the dashboard.
   async function handleSignIn() {
     setLoading(true)
     const supabase = createSupabaseBrowserClient()
@@ -156,10 +177,14 @@ function LandingPageInner() {
   return (
     <main
       className="bg-[#09090b] text-white overflow-hidden"
+      // Cap height to the viewport before the arrow is clicked so the hidden
+      // revealed content (below the fold) can't be scrolled to early.
       style={{ minHeight: '100vh', maxHeight: scrollUnlocked ? 'none' : '100vh' }}
     >
 
-      {/* Hero group — floats up on reveal by animating paddingTop */}
+      {/* ── Hero section ──────────────────────────────────────────────────────
+          Sits vertically centered before reveal. On reveal, paddingTop shrinks
+          so the title floats upward, making room for the content below. */}
       <div
         style={{
           paddingTop: revealed ? 'calc(50vh - 220px)' : 'calc(50vh - 110px)',
@@ -169,7 +194,10 @@ function LandingPageInner() {
       >
         <div className="w-full text-center px-6">
 
-          {/* Rotating question — always in DOM to prevent title from shifting */}
+          {/* Rotating question ──────────────────────────────────────────────
+              Always rendered (even before a question is picked) so the title
+              doesn't jump when the first question appears. minHeight reserves
+              the line's space while the string is empty. */}
           <div className="mb-3">
             <p style={{
               fontFamily: 'var(--font-playfair)',
@@ -183,6 +211,7 @@ function LandingPageInner() {
               transition: 'opacity 0.3s ease',
             }}>
               {question ? question.slice(0, displayedChars) : ''}
+              {/* Text cursor: solid block while typing, blinks when done */}
               {question && (
                 <span style={{
                   animation: displayedChars >= question.length ? 'cursor-blink 1s step-end infinite' : 'none',
@@ -193,7 +222,7 @@ function LandingPageInner() {
             </p>
           </div>
 
-          {/* Title */}
+          {/* App title ───────────────────────────────────────────────────── */}
           <h1
             className="leading-none"
             style={{
@@ -203,12 +232,17 @@ function LandingPageInner() {
             }}
           >
             debatable
-            {/* Grid stacks period + triangle in same cell — period defines box size */}
+            {/* CSS Grid trick ─────────────────────────────────────────────
+                display:inline-grid stacks the period and the triangle in the
+                exact same grid cell (gridArea: '1/1'). The period always
+                renders so it naturally sizes the cell — the triangle sits in
+                that same space at the baseline. No guesswork on positioning.
+                Clicking anywhere on this element triggers the reveal. */}
             <span
               onClick={!revealed ? () => setRevealed(true) : undefined}
               style={{ display: 'inline-grid', cursor: revealed ? 'default' : 'pointer' }}
             >
-              {/* Period — always rendered to size the grid cell, appears on reveal */}
+              {/* Period — hidden before reveal, fades in after */}
               <span style={{
                 gridArea: '1/1',
                 color: '#e11d48',
@@ -216,7 +250,9 @@ function LandingPageInner() {
                 transition: 'opacity 0.15s ease',
               }}>.</span>
 
-              {/* Triangle — same grid cell, pushed to baseline with flex-end */}
+              {/* Triangle arrow — visible before reveal, pulses to invite a click.
+                  alignItems: flex-end pushes it to the bottom of the cell so it
+                  sits at the baseline where the period would be. */}
               <span style={{
                 gridArea: '1/1',
                 display: 'flex',
@@ -228,6 +264,7 @@ function LandingPageInner() {
                 animation: revealed ? 'none' : 'pulse-arrow 1.8s ease-in-out infinite',
                 pointerEvents: revealed ? 'none' : 'auto',
               }}>
+                {/* Pure CSS triangle using borders — no image or icon needed */}
                 <span style={{
                   display: 'inline-block',
                   width: 0,
@@ -243,7 +280,9 @@ function LandingPageInner() {
         </div>
       </div>
 
-      {/* Revealed content — fades in after hero starts moving */}
+      {/* ── Revealed content ──────────────────────────────────────────────────
+          Fades and slides up after the hero starts moving. The 0.35s delay
+          lets the title shift begin first so the two animations feel staggered. */}
       <div
         style={{
           opacity: revealed ? 1 : 0,
@@ -261,6 +300,7 @@ function LandingPageInner() {
             Record your speeches, challenge a friend, and let an AI judge decide who made the stronger case.
           </p>
 
+          {/* Auth error message (e.g. email not on allowlist) */}
           {errorMessage && (
             <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-3 mb-6 text-sm">
               {errorMessage}
@@ -272,6 +312,7 @@ function LandingPageInner() {
             disabled={loading}
             className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 font-semibold py-3 px-6 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
+            {/* Google logo SVG — each path is one color of the Google G */}
             <svg width="20" height="20" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
               <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
