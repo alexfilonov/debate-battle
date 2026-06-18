@@ -49,6 +49,13 @@ create table judgements (
   neg_argumentation smallint,
   neg_evidence smallint,
   neg_rebuttal smallint,
+  -- Structured analysis for the verdict dashboard (nullable: predate the feature).
+  -- *_points:   [{ point, response: 'refuted'|'partial'|'dropped', note }]
+  -- *_analysis: { strength, growth, suggestions: text[] }
+  aff_points jsonb,
+  neg_points jsonb,
+  aff_analysis jsonb,
+  neg_analysis jsonb,
   created_at timestamp with time zone default now()
 );
 

@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   // Ask Claude to judge the debate and return structured JSON
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
+    max_tokens: 4096,
     messages: [
       {
         role: 'user',
@@ -79,20 +79,45 @@ ${affRebuttal}
 --- NEGATIVE REBUTTAL (Round 2) ---
 ${negRebuttal}
 
-Score EACH debater from 1 to 10 on three dimensions:
-- argumentation: clarity, structure, and strength of their arguments
-- evidence: use of evidence, examples, and logical reasoning
-- rebuttal: how directly and effectively they engaged with and refuted the opponent
+Weigh each debater's OPENING and REBUTTAL equally — a strong rebuttal does not
+make up for a weak opening, and vice versa.
 
-Respond with ONLY a valid JSON object in this exact format, no explanation outside the JSON. The "winner" MUST be the side with the higher total score (argumentation + evidence + rebuttal):
+Do all of the following:
+
+1. Score each debater 1-10 on three dimensions:
+   - argumentation: clarity, structure, and strength of their arguments
+   - evidence: use of evidence, examples, and logical reasoning
+   - rebuttal: how directly and effectively they engaged with the opponent
+
+2. Identify the 2-4 main arguments (points) EACH side made. For each point, judge
+   how well the OPPOSING side responded to it:
+   - "refuted": directly and convincingly answered
+   - "partial": acknowledged but only partly answered
+   - "dropped": ignored entirely
+   A dropped or partially-answered point counts in favor of the side that made it.
+
+3. For each debater give one headline strength, one biggest area to improve, and
+   2-3 concrete, actionable suggestions to strengthen their case — better argument
+   angles, tighter logic, or specific evidence they could have used.
+
+Respond with ONLY a valid JSON object in this exact format, no text outside the
+JSON. The "winner" MUST be the side with the higher total score:
 {
   "winner": "affirmative" or "negative",
-  "reasoning": "2-4 sentence explanation of why this side won the debate overall",
-  "affirmative_feedback": "2-4 sentences of specific, constructive feedback for the affirmative debater",
-  "negative_feedback": "2-4 sentences of specific, constructive feedback for the negative debater",
+  "reasoning": "2-4 sentence explanation of why this side won overall",
+  "affirmative_feedback": "2-3 sentence narrative summary for the affirmative debater",
+  "negative_feedback": "2-3 sentence narrative summary for the negative debater",
   "scores": {
     "affirmative": { "argumentation": <1-10>, "evidence": <1-10>, "rebuttal": <1-10> },
     "negative": { "argumentation": <1-10>, "evidence": <1-10>, "rebuttal": <1-10> }
+  },
+  "points": {
+    "affirmative": [ { "point": "<short summary>", "response": "refuted|partial|dropped", "note": "<how the negative handled it>" } ],
+    "negative": [ { "point": "<short summary>", "response": "refuted|partial|dropped", "note": "<how the affirmative handled it>" } ]
+  },
+  "analysis": {
+    "affirmative": { "strength": "<one strength>", "growth": "<one improvement area>", "suggestions": ["<suggestion>", "<suggestion>"] },
+    "negative": { "strength": "<one strength>", "growth": "<one improvement area>", "suggestions": ["<suggestion>", "<suggestion>"] }
   }
 }`,
       },
@@ -115,6 +140,14 @@ Respond with ONLY a valid JSON object in this exact format, no explanation outsi
     scores: {
       affirmative: { argumentation: number; evidence: number; rebuttal: number }
       negative: { argumentation: number; evidence: number; rebuttal: number }
+    }
+    points: {
+      affirmative: { point: string; response: string; note: string }[]
+      negative: { point: string; response: string; note: string }[]
+    }
+    analysis: {
+      affirmative: { strength: string; growth: string; suggestions: string[] }
+      negative: { strength: string; growth: string; suggestions: string[] }
     }
   }
   try {
@@ -151,6 +184,10 @@ Respond with ONLY a valid JSON object in this exact format, no explanation outsi
       neg_argumentation: verdict.scores.negative.argumentation,
       neg_evidence: verdict.scores.negative.evidence,
       neg_rebuttal: verdict.scores.negative.rebuttal,
+      aff_points: verdict.points.affirmative,
+      neg_points: verdict.points.negative,
+      aff_analysis: verdict.analysis.affirmative,
+      neg_analysis: verdict.analysis.negative,
     })
     .select()
     .single()

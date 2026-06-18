@@ -36,6 +36,23 @@ export type Speech = {
   created_at: string
 }
 
+// How well the opposing side answered a given argument.
+export type ClashResponse = 'refuted' | 'partial' | 'dropped'
+
+// One argument a debater made, plus how their opponent handled it.
+export type ClashPoint = {
+  point: string          // short summary of the argument
+  response: ClashResponse // how the OPPONENT responded to it
+  note: string           // one line on how it was (or wasn't) addressed
+}
+
+// Actionable per-debater analysis that powers the feedback dashboard.
+export type SideAnalysis = {
+  strength: string        // one headline strength
+  growth: string          // one biggest area to improve
+  suggestions: string[]   // concrete ways to strengthen the case
+}
+
 export type Judgement = {
   id: string
   debate_id: string
@@ -51,5 +68,11 @@ export type Judgement = {
   neg_argumentation: number | null
   neg_evidence: number | null
   neg_rebuttal: number | null
+  // Structured analysis for the dashboard. Nullable for older judgements.
+  // *_points are the arguments THAT side made (response = how the opponent answered).
+  aff_points: ClashPoint[] | null
+  neg_points: ClashPoint[] | null
+  aff_analysis: SideAnalysis | null
+  neg_analysis: SideAnalysis | null
   created_at: string
 }
