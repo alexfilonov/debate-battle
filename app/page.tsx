@@ -76,6 +76,104 @@ const QUESTIONS = [
   'Is it rude to show up exactly on time?',
   'Should you tip at a fast food restaurant?',
   'Was Socrates actually wise?',
+
+  // Food
+  'Is a wrap just a scared taco?',
+  'Is ketchup a smoothie?',
+  'Is a banana a berry but a strawberry isn\'t?',
+  'Should you eat the pizza crust?',
+  'Is ranch dressing acceptable on pizza?',
+  'Is a pickle just a cucumber that went through something?',
+  'Should you wash fruit before eating it?',
+  'Is cereal a valid dinner?',
+  'Is eating cold pizza for breakfast a sign of good character?',
+  'Can you put ketchup on a steak?',
+  'Is sparkling water just angry water?',
+  'Is a Mcflurry just a milkshake that went to college?',
+  'Is soup just hot water that got too involved?',
+
+  // Relationships & Social
+  'Is it cheating if it\'s in a dream?',
+  'Should you tell your friend their partner is ugly?',
+  'Is ghosting ever morally defensible?',
+  'Is it rude to not laugh at someone\'s joke even if it\'s bad?',
+  'Should you correct a stranger\'s grammar?',
+  'Is being bad at texting a red flag?',
+  'Is it okay to snoop through your partner\'s phone?',
+  'Should you tell someone they have food in their teeth?',
+  'Is it wrong to rate your Uber driver less than 5 stars?',
+  'Is venting to a friend just making your problems their problems?',
+  'Should you tell someone their baby is ugly?',
+  'Is canceling plans the highest form of self-care?',
+
+  // Pop culture & media
+  'Was Breaking Bad better than The Sopranos?',
+  'Is Taylor Swift overrated?',
+  'Is Marvel ruining cinema?',
+  'Was Lost good or just confusing?',
+  'Is anime just cartoons for adults who won\'t admit it?',
+  'Is TikTok just Vine for people with shorter attention spans?',
+  'Is LinkedIn just Facebook for people ashamed of Facebook?',
+  'Are podcasts just radio for people who think they\'re better than radio?',
+  'Is a reboot ever better than the original?',
+  'Was Shrek a cinematic masterpiece?',
+  'Is astrology just horoscopes with better branding?',
+  'Is true crime just gossip with a documentary budget?',
+
+  // Modern life
+  'Is working from home making us worse at being people?',
+  'Is a side hustle just a second job with better PR?',
+  'Is therapy just paying someone to be your friend?',
+  'Are morning people just annoying?',
+  'Is skipping the gym once a slippery slope?',
+  'Should you wash your jeans?',
+  'Is it okay to wear socks with sandals unironically?',
+  'Is it rude to eat someone else\'s clearly labeled food from the fridge?',
+  'Should you flush in the middle of the night?',
+  'Is lying about your age online just personal branding?',
+  'Is "I\'m an introvert" just an excuse?',
+  'Should you tip for counter service?',
+  'Is the five-second rule scientifically valid?',
+
+  // Big and spicy
+  'Is democracy overrated?',
+  'Was colonialism the worst thing to happen to cuisine? (it improved it)',
+  'Is capitalism just organized chaos we agreed to like?',
+  'Are participation trophies ruining a generation?',
+  'Is cancel culture just accountability with bad PR?',
+  'Is college worth the debt?',
+  'Should voting be mandatory?',
+  'Is it ever okay to lie to a child about Santa?',
+  'Is working hard overrated?',
+  'Is it ethical to have kids in 2025?',
+  'Is it okay to recline your airplane seat immediately?',
+  'Are zoos ethical?',
+  'Is eating meat morally defensible?',
+
+  // Political
+  'Is the two-party system just two bad options with better logos?',
+  'Is free speech absolutism just a cover for saying awful things?',
+  'Should billionaires exist?',
+  'Is the Electoral College still defensible?',
+  'Was Edward Snowden a hero or a traitor?',
+  'Should the voting age be lowered to 16?',
+  'Is universal basic income a utopia or a disaster?',
+  'Should the rich pay more taxes or just pay their existing taxes?',
+  'Is the media more biased left or right?',
+  'Was the Iraq War the biggest foreign policy blunder in modern history?',
+  'Should term limits apply to the Supreme Court?',
+  'Is political correctness free speech in disguise?',
+  'Should social media companies moderate political speech?',
+  'Is the UN actually useful?',
+  'Should drugs be decriminalized?',
+  'Is NATO still relevant?',
+  'Was Churchill a hero or a villain?',
+  'Should the government control healthcare?',
+  'Is open borders a realistic policy?',
+  'Is affirmative action fair?',
+  'Should felons be allowed to vote?',
+  'Is nuclear energy the only realistic path to clean energy?',
+  'Was the American Revolution just a tax dispute with good PR?',
 ]
 
 const QUEUE_KEY = 'debatable_queue'
@@ -133,7 +231,7 @@ function LandingPageInner() {
       chars++
       setDisplayedChars(chars)
       if (chars >= question.length) clearInterval(interval)
-    }, 38)
+    }, 18)
     return () => clearInterval(interval)
   }, [question])
 
@@ -155,8 +253,8 @@ function LandingPageInner() {
 
   return (
     <main
-      className="bg-[#09090b] text-white overflow-hidden"
-      style={{ minHeight: '100vh', maxHeight: scrollUnlocked ? 'none' : '100vh' }}
+      className="overflow-hidden"
+      style={{ minHeight: '100vh', maxHeight: scrollUnlocked ? 'none' : '100vh', background: 'var(--color-base)', color: 'var(--color-text)' }}
     >
 
       {/* Hero group — floats up on reveal by animating paddingTop */}
@@ -175,7 +273,7 @@ function LandingPageInner() {
               fontFamily: 'var(--font-playfair)',
               fontStyle: 'italic',
               fontSize: 'clamp(1rem, 2.5vw, 1.2rem)',
-              color: '#6b7280',
+              color: 'var(--color-text-muted)',
               letterSpacing: '0.01em',
               lineHeight: 1.4,
               minHeight: '1.5em',
@@ -186,7 +284,7 @@ function LandingPageInner() {
               {question && (
                 <span style={{
                   animation: displayedChars >= question.length ? 'cursor-blink 1s step-end infinite' : 'none',
-                  color: '#6b7280',
+                  color: 'var(--color-text-muted)',
                   marginLeft: '1px',
                 }}>|</span>
               )}
@@ -200,23 +298,26 @@ function LandingPageInner() {
               fontFamily: 'var(--font-bebas)',
               fontSize: 'clamp(3.5rem, 12vw, 8rem)',
               display: 'block',
+              lineHeight: 1,
             }}
           >
             debatable
-            {/* Grid stacks period + triangle in same cell — period defines box size */}
+
+            {/* Period + triangle — outside gradient span so they render white */}
             <span
               onClick={!revealed ? () => setRevealed(true) : undefined}
-              style={{ display: 'inline-grid', cursor: revealed ? 'default' : 'pointer' }}
+              style={{ display: 'inline-grid', cursor: revealed ? 'default' : 'pointer', verticalAlign: 'baseline' }}
             >
-              {/* Period — always rendered to size the grid cell, appears on reveal */}
+              {/* Period */}
               <span style={{
                 gridArea: '1/1',
-                color: '#e11d48',
                 opacity: revealed ? 1 : 0,
                 transition: 'opacity 0.15s ease',
+                color: 'var(--color-verdict)',
+                fontFamily: 'var(--font-bebas)',
               }}>.</span>
 
-              {/* Triangle — same grid cell, pushed to baseline with flex-end */}
+              {/* Triangle */}
               <span style={{
                 gridArea: '1/1',
                 display: 'flex',
@@ -230,11 +331,10 @@ function LandingPageInner() {
               }}>
                 <span style={{
                   display: 'inline-block',
-                  width: 0,
-                  height: 0,
-                  borderLeft: '0.11em solid transparent',
-                  borderRight: '0.11em solid transparent',
-                  borderBottom: '0.18em solid #e11d48',
+                  width: '0.22em',
+                  height: '0.18em',
+                  background: 'var(--color-verdict)',
+                  clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)',
                 }} />
               </span>
             </span>
@@ -254,10 +354,10 @@ function LandingPageInner() {
       >
         <div className="w-full max-w-lg mx-auto px-6 text-center pb-16">
 
-          <p className="text-gray-400 text-xs uppercase mb-4" style={{ letterSpacing: '0.2em' }}>
+          <p className="text-xs uppercase mb-4" style={{ letterSpacing: '0.2em', color: 'var(--color-text-muted)' }}>
             Make your case. Let the record show.
           </p>
-          <p className="text-gray-500 text-sm mb-10">
+          <p className="text-sm mb-10" style={{ color: 'var(--color-text-muted)' }}>
             Record your speeches, challenge a friend, and let an AI judge decide who made the stronger case.
           </p>
 
@@ -281,7 +381,7 @@ function LandingPageInner() {
             {loading ? 'Signing in...' : 'Sign in with Google'}
           </button>
 
-          <p className="text-gray-600 text-xs mt-4">Access is invite-only.</p>
+          <p className="text-xs mt-4" style={{ color: 'var(--color-text-subtle)' }}>Access is invite-only.</p>
         </div>
       </div>
 
