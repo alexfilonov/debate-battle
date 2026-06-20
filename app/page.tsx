@@ -4,6 +4,9 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 
+// Anime.js is imported dynamically inside useEffect so it never runs on the server.
+// It manipulates the DOM directly and has no SSR-safe mode.
+
 // ─── Rotating debate questions ────────────────────────────────────────────────
 // Displayed above the title and typed out one character at a time on page load.
 // Intentionally lighthearted — they set the tone before the user signs in.
@@ -240,6 +243,35 @@ function LandingPageInner() {
     setQuestion(getNextQuestion())
   }, [])
 
+  // Letter stagger: animate each letter of "debatable" up into place on load.
+  // The suffix (period/arrow) is included as the 10th element in the sequence.
+  useEffect(() => {
+    import('animejs').then(({ animate, utils }) => {
+      animate('.title-letter, .title-suffix', {
+        opacity: [0, 1],
+        translateY: ['0.25em', 0],
+        delay: utils.stagger(55, { start: 120 }),
+        ease: 'easeOutExpo',
+        duration: 700,
+      })
+    })
+  }, [])
+
+  // Staggered content reveal: animate each element below the title in sequence
+  // when the arrow is clicked, instead of fading the whole block at once.
+  useEffect(() => {
+    if (!revealed) return
+    import('animejs').then(({ animate, utils }) => {
+      animate('.reveal-item', {
+        opacity: [0, 1],
+        translateY: ['1rem', 0],
+        delay: utils.stagger(110, { start: 320 }),
+        ease: 'easeOutCubic',
+        duration: 480,
+      })
+    })
+  }, [revealed])
+
   // Typewriter effect: reveal one character every 18ms until the full question is shown.
   useEffect(() => {
     if (!question) return
@@ -331,7 +363,10 @@ function LandingPageInner() {
               display: 'block',
             }}
           >
-            debatable
+            {/* Each letter is its own span so Anime.js can stagger them individually */}
+            {'debatable'.split('').map((char, i) => (
+              <span key={i} className="title-letter" style={{ display: 'inline-block', opacity: 0 }}>{char}</span>
+            ))}
             {/* CSS Grid trick ─────────────────────────────────────────────
                 display:inline-grid stacks the period and the triangle in the
                 exact same grid cell (gridArea: '1/1'). The period always
@@ -339,8 +374,9 @@ function LandingPageInner() {
                 that same space at the baseline. No guesswork on positioning.
                 Clicking anywhere on this element triggers the reveal. */}
             <span
+              className="title-suffix"
               onClick={!revealed ? () => setRevealed(true) : undefined}
-              style={{ display: 'inline-grid', cursor: revealed ? 'default' : 'pointer', verticalAlign: 'baseline' }}
+              style={{ display: 'inline-grid', cursor: revealed ? 'default' : 'pointer', verticalAlign: 'baseline', opacity: 0 }}
             >
               {/* Period — hidden before reveal, fades in after */}
               <span style={{
@@ -381,28 +417,21 @@ function LandingPageInner() {
       </div>
 
       {/* ── Revealed content ──────────────────────────────────────────────────
-          Fades and slides up after the hero starts moving. The 0.35s delay
-          lets the title shift begin first so the two animations feel staggered. */}
-      <div
-        style={{
-          opacity: revealed ? 1 : 0,
-          transform: revealed ? 'translateY(0)' : 'translateY(1.5rem)',
-          transition: 'opacity 0.55s ease 0.35s, transform 0.55s ease 0.35s',
-          pointerEvents: revealed ? 'auto' : 'none',
-        }}
-      >
+          Wrapper just controls pointer events. Each child animates in
+          independently via Anime.js stagger when revealed becomes true. */}
+      <div style={{ pointerEvents: revealed ? 'auto' : 'none' }}>
         <div className="w-full max-w-lg mx-auto px-6 text-center pb-16">
 
-          <p className="text-xs uppercase mb-4" style={{ letterSpacing: '0.2em', color: 'var(--color-text-muted)' }}>
+          <p className="reveal-item text-xs uppercase mb-4" style={{ letterSpacing: '0.2em', color: 'var(--color-text-muted)', opacity: 0 }}>
             Make your case. Let the record show.
           </p>
-          <p className="text-sm mb-10" style={{ color: 'var(--color-text-muted)' }}>
+          <p className="reveal-item text-sm mb-10" style={{ color: 'var(--color-text-muted)', opacity: 0 }}>
             Record your speeches, challenge a friend, and let an AI judge decide who made the stronger case.
           </p>
 
           {/* Auth error message (e.g. email not on allowlist) */}
           {errorMessage && (
-            <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-3 mb-6 text-sm">
+            <div className="reveal-item bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-3 mb-6 text-sm" style={{ opacity: 0 }}>
               {errorMessage}
             </div>
           )}
@@ -410,7 +439,8 @@ function LandingPageInner() {
           <button
             onClick={handleSignIn}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 font-semibold py-3 px-6 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="reveal-item w-full flex items-center justify-center gap-3 bg-white text-gray-900 font-semibold py-3 px-6 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ opacity: 0 }}
           >
             {/* Google logo SVG — each path is one color of the Google G */}
             <svg width="20" height="20" viewBox="0 0 24 24">
@@ -422,7 +452,7 @@ function LandingPageInner() {
             {loading ? 'Signing in...' : 'Sign in with Google'}
           </button>
 
-          <p className="text-xs mt-4" style={{ color: 'var(--color-text-subtle)' }}>Access is invite-only.</p>
+          <p className="reveal-item text-xs mt-4" style={{ color: 'var(--color-text-subtle)', opacity: 0 }}>Access is invite-only.</p>
         </div>
       </div>
 
