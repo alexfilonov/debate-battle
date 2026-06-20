@@ -16,21 +16,23 @@ const TOPIC_AREAS = [
   'Culture',
 ]
 
-// The new debate page walks the user through 3 steps:
+// The new debate page walks the user through 4 steps:
 // 1. Pick a topic area
 // 2. Pick or write a resolution
-// 3. Pick a side (or get randomly assigned)
+// 3. Choose battle format (two phones / one phone)
+// 4. Pick a side (or get randomly assigned)
 export default function NewDebatePage() {
   const router = useRouter()
 
   // Track which step the user is on
-  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
 
   // Form state
   const [selectedTopic, setSelectedTopic] = useState('')
   const [resolutions, setResolutions] = useState<string[]>([])
   const [selectedResolution, setSelectedResolution] = useState('')
   const [customResolution, setCustomResolution] = useState('')
+  const [battleFormat, setBattleFormat] = useState<'two-phones' | 'one-phone'>('two-phones')
   const [selectedSide, setSelectedSide] = useState<'affirmative' | 'negative' | 'random'>('random')
 
   // Loading and error states
@@ -77,7 +79,13 @@ export default function NewDebatePage() {
     setStep(3)
   }
 
-  // Step 3: create the debate in Supabase and redirect to the debate room
+  // Step 3 → 4: user picks a battle format
+  function handleFormatSelect(format: 'two-phones' | 'one-phone') {
+    setBattleFormat(format)
+    setStep(4)
+  }
+
+  // Step 4: create the debate in Supabase and redirect to the debate room
   async function handleCreateDebate() {
     setCreating(true)
     setError(null)
@@ -136,15 +144,15 @@ export default function NewDebatePage() {
 
         {/* Back button */}
         <button
-          onClick={() => step === 1 ? router.push('/dashboard') : setStep((step - 1) as 1 | 2 | 3)}
+          onClick={() => step === 1 ? router.push('/dashboard') : setStep((step - 1) as 1 | 2 | 3 | 4)}
           className="text-gray-500 hover:text-white text-sm mb-8 flex items-center gap-1 transition-colors"
         >
           ← Back
         </button>
 
-        {/* Step indicator */}
+        {/* Step indicator — 4 segments, one per step */}
         <div className="flex items-center gap-2 mb-8">
-          {[1, 2, 3].map((s) => (
+          {[1, 2, 3, 4].map((s) => (
             <div
               key={s}
               className={`h-1.5 flex-1 rounded-full transition-colors ${
@@ -232,8 +240,42 @@ export default function NewDebatePage() {
           </div>
         )}
 
-        {/* ── Step 3: Pick a side ── */}
+        {/* ── Step 3: Choose battle format ── */}
         {step === 3 && (
+          <div>
+            <h1 className="text-2xl font-bold mb-2">How do you want to battle?</h1>
+            <p className="text-gray-400 mb-8">Choose how you and your opponent will record your speeches.</p>
+
+            <div className="flex flex-col gap-3">
+
+              {/* Two phones — the original async flow */}
+              <button
+                onClick={() => handleFormatSelect('two-phones')}
+                className="border border-gray-800 bg-gray-900 hover:bg-gray-800 rounded-xl p-5 text-left transition-colors"
+              >
+                <div className="font-semibold text-white mb-1">Two Phones</div>
+                <div className="text-sm text-gray-400">
+                  Share a link with your opponent. Each person records on their own device, whenever they're ready.
+                </div>
+              </button>
+
+              {/* One phone — coming soon */}
+              <div className="border border-gray-800 bg-gray-900 rounded-xl p-5 text-left opacity-50 cursor-not-allowed relative">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-semibold text-white">One Phone</span>
+                  <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">Coming soon</span>
+                </div>
+                <div className="text-sm text-gray-400">
+                  Both debaters take turns recording on the same device, face to face.
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 4: Pick a side ── */}
+        {step === 4 && (
           <div>
             <h1 className="text-2xl font-bold mb-2">Pick your side</h1>
             <p className="text-gray-400 mb-1">Resolution:</p>
