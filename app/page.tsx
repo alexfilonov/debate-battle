@@ -4,8 +4,6 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 
-// Anime.js is imported dynamically inside useEffect so it never runs on the server.
-// It manipulates the DOM directly and has no SSR-safe mode.
 
 // ─── Rotating debate questions ────────────────────────────────────────────────
 // Displayed above the title and typed out one character at a time on page load.
@@ -243,20 +241,6 @@ function LandingPageInner() {
     setQuestion(getNextQuestion())
   }, [])
 
-  // Letter stagger: animate each letter of "debatable" up into place on load.
-  // The suffix (period/arrow) is included as the 10th element in the sequence.
-  useEffect(() => {
-    import('animejs').then(({ animate, utils }) => {
-      animate('.title-letter, .title-suffix', {
-        opacity: [0, 1],
-        translateY: ['0.25em', 0],
-        delay: utils.stagger(55, { start: 120 }),
-        ease: 'easeOutExpo',
-        duration: 700,
-      })
-    })
-  }, [])
-
   // Staggered content reveal: animate each element below the title in sequence
   // when the arrow is clicked, instead of fading the whole block at once.
   useEffect(() => {
@@ -363,10 +347,7 @@ function LandingPageInner() {
               display: 'block',
             }}
           >
-            {/* Each letter is its own span so Anime.js can stagger them individually */}
-            {'debatable'.split('').map((char, i) => (
-              <span key={i} className="title-letter" style={{ display: 'inline-block', opacity: 0 }}>{char}</span>
-            ))}
+            debatable
             {/* CSS Grid trick ─────────────────────────────────────────────
                 display:inline-grid stacks the period and the triangle in the
                 exact same grid cell (gridArea: '1/1'). The period always
@@ -374,9 +355,8 @@ function LandingPageInner() {
                 that same space at the baseline. No guesswork on positioning.
                 Clicking anywhere on this element triggers the reveal. */}
             <span
-              className="title-suffix"
               onClick={!revealed ? () => setRevealed(true) : undefined}
-              style={{ display: 'inline-grid', cursor: revealed ? 'default' : 'pointer', verticalAlign: 'baseline', opacity: 0 }}
+              style={{ display: 'inline-grid', cursor: revealed ? 'default' : 'pointer', verticalAlign: 'baseline' }}
             >
               {/* Period — hidden before reveal, fades in after */}
               <span style={{
