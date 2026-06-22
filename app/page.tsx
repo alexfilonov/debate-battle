@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 
+
 // ─── Rotating debate questions ────────────────────────────────────────────────
 // Displayed above the title and typed out one character at a time on page load.
 // Intentionally lighthearted — they set the tone before the user signs in.
@@ -79,6 +80,104 @@ const QUESTIONS = [
   'Is it rude to show up exactly on time?',
   'Should you tip at a fast food restaurant?',
   'Was Socrates actually wise?',
+
+  // Food
+  'Is a wrap just a scared taco?',
+  'Is ketchup a smoothie?',
+  'Is a banana a berry but a strawberry isn\'t?',
+  'Should you eat the pizza crust?',
+  'Is ranch dressing acceptable on pizza?',
+  'Is a pickle just a cucumber that went through something?',
+  'Should you wash fruit before eating it?',
+  'Is cereal a valid dinner?',
+  'Is eating cold pizza for breakfast a sign of good character?',
+  'Can you put ketchup on a steak?',
+  'Is sparkling water just angry water?',
+  'Is a Mcflurry just a milkshake that went to college?',
+  'Is soup just hot water that got too involved?',
+
+  // Relationships & Social
+  'Is it cheating if it\'s in a dream?',
+  'Should you tell your friend their partner is ugly?',
+  'Is ghosting ever morally defensible?',
+  'Is it rude to not laugh at someone\'s joke even if it\'s bad?',
+  'Should you correct a stranger\'s grammar?',
+  'Is being bad at texting a red flag?',
+  'Is it okay to snoop through your partner\'s phone?',
+  'Should you tell someone they have food in their teeth?',
+  'Is it wrong to rate your Uber driver less than 5 stars?',
+  'Is venting to a friend just making your problems their problems?',
+  'Should you tell someone their baby is ugly?',
+  'Is canceling plans the highest form of self-care?',
+
+  // Pop culture & media
+  'Was Breaking Bad better than The Sopranos?',
+  'Is Taylor Swift overrated?',
+  'Is Marvel ruining cinema?',
+  'Was Lost good or just confusing?',
+  'Is anime just cartoons for adults who won\'t admit it?',
+  'Is TikTok just Vine for people with shorter attention spans?',
+  'Is LinkedIn just Facebook for people ashamed of Facebook?',
+  'Are podcasts just radio for people who think they\'re better than radio?',
+  'Is a reboot ever better than the original?',
+  'Was Shrek a cinematic masterpiece?',
+  'Is astrology just horoscopes with better branding?',
+  'Is true crime just gossip with a documentary budget?',
+
+  // Modern life
+  'Is working from home making us worse at being people?',
+  'Is a side hustle just a second job with better PR?',
+  'Is therapy just paying someone to be your friend?',
+  'Are morning people just annoying?',
+  'Is skipping the gym once a slippery slope?',
+  'Should you wash your jeans?',
+  'Is it okay to wear socks with sandals unironically?',
+  'Is it rude to eat someone else\'s clearly labeled food from the fridge?',
+  'Should you flush in the middle of the night?',
+  'Is lying about your age online just personal branding?',
+  'Is "I\'m an introvert" just an excuse?',
+  'Should you tip for counter service?',
+  'Is the five-second rule scientifically valid?',
+
+  // Big and spicy
+  'Is democracy overrated?',
+  'Was colonialism the worst thing to happen to cuisine? (it improved it)',
+  'Is capitalism just organized chaos we agreed to like?',
+  'Are participation trophies ruining a generation?',
+  'Is cancel culture just accountability with bad PR?',
+  'Is college worth the debt?',
+  'Should voting be mandatory?',
+  'Is it ever okay to lie to a child about Santa?',
+  'Is working hard overrated?',
+  'Is it ethical to have kids in 2025?',
+  'Is it okay to recline your airplane seat immediately?',
+  'Are zoos ethical?',
+  'Is eating meat morally defensible?',
+
+  // Political
+  'Is the two-party system just two bad options with better logos?',
+  'Is free speech absolutism just a cover for saying awful things?',
+  'Should billionaires exist?',
+  'Is the Electoral College still defensible?',
+  'Was Edward Snowden a hero or a traitor?',
+  'Should the voting age be lowered to 16?',
+  'Is universal basic income a utopia or a disaster?',
+  'Should the rich pay more taxes or just pay their existing taxes?',
+  'Is the media more biased left or right?',
+  'Was the Iraq War the biggest foreign policy blunder in modern history?',
+  'Should term limits apply to the Supreme Court?',
+  'Is political correctness free speech in disguise?',
+  'Should social media companies moderate political speech?',
+  'Is the UN actually useful?',
+  'Should drugs be decriminalized?',
+  'Is NATO still relevant?',
+  'Was Churchill a hero or a villain?',
+  'Should the government control healthcare?',
+  'Is open borders a realistic policy?',
+  'Is affirmative action fair?',
+  'Should felons be allowed to vote?',
+  'Is nuclear energy the only realistic path to clean energy?',
+  'Was the American Revolution just a tax dispute with good PR?',
 ]
 
 // SessionStorage keys for the shuffle queue.
@@ -142,7 +241,22 @@ function LandingPageInner() {
     setQuestion(getNextQuestion())
   }, [])
 
-  // Typewriter effect: reveal one character every 38ms until the full question is shown.
+  // Staggered content reveal: animate each element below the title in sequence
+  // when the arrow is clicked, instead of fading the whole block at once.
+  useEffect(() => {
+    if (!revealed) return
+    import('animejs').then(({ animate, utils }) => {
+      animate('.reveal-item', {
+        opacity: [0, 1],
+        translateY: ['1rem', 0],
+        delay: utils.stagger(110, { start: 320 }),
+        ease: 'easeOutCubic',
+        duration: 480,
+      })
+    })
+  }, [revealed])
+
+  // Typewriter effect: reveal one character every 18ms until the full question is shown.
   useEffect(() => {
     if (!question) return
     setDisplayedChars(0)
@@ -151,7 +265,7 @@ function LandingPageInner() {
       chars++
       setDisplayedChars(chars)
       if (chars >= question.length) clearInterval(interval)
-    }, 38)
+    }, 18)
     return () => clearInterval(interval)
   }, [question])
 
@@ -176,10 +290,11 @@ function LandingPageInner() {
 
   return (
     <main
-      className="bg-[#09090b] text-white overflow-hidden"
+      className="overflow-hidden"
       // Cap height to the viewport before the arrow is clicked so the hidden
       // revealed content (below the fold) can't be scrolled to early.
-      style={{ minHeight: '100vh', maxHeight: scrollUnlocked ? 'none' : '100vh' }}
+      // Uses CSS color tokens so the theme can be updated from globals.css.
+      style={{ minHeight: '100vh', maxHeight: scrollUnlocked ? 'none' : '100vh', background: 'var(--color-base)', color: 'var(--color-text)' }}
     >
 
       {/* ── Hero section ──────────────────────────────────────────────────────
@@ -203,7 +318,7 @@ function LandingPageInner() {
               fontFamily: 'var(--font-playfair)',
               fontStyle: 'italic',
               fontSize: 'clamp(1rem, 2.5vw, 1.2rem)',
-              color: '#6b7280',
+              color: 'var(--color-text-muted)',
               letterSpacing: '0.01em',
               lineHeight: 1.4,
               minHeight: '1.5em',
@@ -215,7 +330,7 @@ function LandingPageInner() {
               {question && (
                 <span style={{
                   animation: displayedChars >= question.length ? 'cursor-blink 1s step-end infinite' : 'none',
-                  color: '#6b7280',
+                  color: 'var(--color-text-muted)',
                   marginLeft: '1px',
                 }}>|</span>
               )}
@@ -228,6 +343,7 @@ function LandingPageInner() {
             style={{
               fontFamily: 'var(--font-bebas)',
               fontSize: 'clamp(3.5rem, 12vw, 8rem)',
+              lineHeight: 1,
               display: 'block',
             }}
           >
@@ -240,14 +356,15 @@ function LandingPageInner() {
                 Clicking anywhere on this element triggers the reveal. */}
             <span
               onClick={!revealed ? () => setRevealed(true) : undefined}
-              style={{ display: 'inline-grid', cursor: revealed ? 'default' : 'pointer' }}
+              style={{ display: 'inline-grid', cursor: revealed ? 'default' : 'pointer', verticalAlign: 'baseline' }}
             >
               {/* Period — hidden before reveal, fades in after */}
               <span style={{
                 gridArea: '1/1',
-                color: '#e11d48',
+                color: 'var(--color-verdict)',
                 opacity: revealed ? 1 : 0,
                 transition: 'opacity 0.15s ease',
+                fontFamily: 'var(--font-bebas)',
               }}>.</span>
 
               {/* Triangle arrow — visible before reveal, pulses to invite a click.
@@ -264,14 +381,13 @@ function LandingPageInner() {
                 animation: revealed ? 'none' : 'pulse-arrow 1.8s ease-in-out infinite',
                 pointerEvents: revealed ? 'none' : 'auto',
               }}>
-                {/* Pure CSS triangle using borders — no image or icon needed */}
+                {/* clipPath triangle — cleaner than the CSS border trick */}
                 <span style={{
                   display: 'inline-block',
-                  width: 0,
-                  height: 0,
-                  borderLeft: '0.11em solid transparent',
-                  borderRight: '0.11em solid transparent',
-                  borderBottom: '0.18em solid #e11d48',
+                  width: '0.22em',
+                  height: '0.18em',
+                  background: 'var(--color-verdict)',
+                  clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)',
                 }} />
               </span>
             </span>
@@ -281,28 +397,21 @@ function LandingPageInner() {
       </div>
 
       {/* ── Revealed content ──────────────────────────────────────────────────
-          Fades and slides up after the hero starts moving. The 0.35s delay
-          lets the title shift begin first so the two animations feel staggered. */}
-      <div
-        style={{
-          opacity: revealed ? 1 : 0,
-          transform: revealed ? 'translateY(0)' : 'translateY(1.5rem)',
-          transition: 'opacity 0.55s ease 0.35s, transform 0.55s ease 0.35s',
-          pointerEvents: revealed ? 'auto' : 'none',
-        }}
-      >
+          Wrapper just controls pointer events. Each child animates in
+          independently via Anime.js stagger when revealed becomes true. */}
+      <div style={{ pointerEvents: revealed ? 'auto' : 'none' }}>
         <div className="w-full max-w-lg mx-auto px-6 text-center pb-16">
 
-          <p className="text-gray-400 text-xs uppercase mb-4" style={{ letterSpacing: '0.2em' }}>
+          <p className="reveal-item text-xs uppercase mb-4" style={{ letterSpacing: '0.2em', color: 'var(--color-text-muted)', opacity: 0 }}>
             Make your case. Let the record show.
           </p>
-          <p className="text-gray-500 text-sm mb-10">
+          <p className="reveal-item text-sm mb-10" style={{ color: 'var(--color-text-muted)', opacity: 0 }}>
             Record your speeches, challenge a friend, and let an AI judge decide who made the stronger case.
           </p>
 
           {/* Auth error message (e.g. email not on allowlist) */}
           {errorMessage && (
-            <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-3 mb-6 text-sm">
+            <div className="reveal-item bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-3 mb-6 text-sm" style={{ opacity: 0 }}>
               {errorMessage}
             </div>
           )}
@@ -310,7 +419,8 @@ function LandingPageInner() {
           <button
             onClick={handleSignIn}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 bg-white text-gray-900 font-semibold py-3 px-6 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="reveal-item w-full flex items-center justify-center gap-3 bg-white text-gray-900 font-semibold py-3 px-6 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ opacity: 0 }}
           >
             {/* Google logo SVG — each path is one color of the Google G */}
             <svg width="20" height="20" viewBox="0 0 24 24">
@@ -322,7 +432,7 @@ function LandingPageInner() {
             {loading ? 'Signing in...' : 'Sign in with Google'}
           </button>
 
-          <p className="text-gray-600 text-xs mt-4">Access is invite-only.</p>
+          <p className="reveal-item text-xs mt-4" style={{ color: 'var(--color-text-subtle)', opacity: 0 }}>Access is invite-only.</p>
         </div>
       </div>
 
