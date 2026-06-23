@@ -16,11 +16,15 @@ const TOPIC_AREAS = [
   'Culture',
 ]
 
-// The new debate page walks the user through 4 steps:
-// 1. Pick a topic area
-// 2. Pick or write a resolution
-// 3. Choose battle format (two phones / one phone)
+// The new debate page walks the user through up to 4 steps:
+// 1. Choose a format (two phones → continue here; one phone → /debate/live)
+// 2. Pick a topic area
+// 3. Pick or write a resolution
 // 4. Pick a side (or get randomly assigned)
+//
+// One-phone (in-person) mode is a different flow entirely — it has no topic,
+// resolution, or side — so step 1 routes there and the rest of this page is the
+// original two-phone structured flow, unchanged apart from being renumbered.
 export default function NewDebatePage() {
   const router = useRouter()
 
@@ -32,7 +36,6 @@ export default function NewDebatePage() {
   const [resolutions, setResolutions] = useState<string[]>([])
   const [selectedResolution, setSelectedResolution] = useState('')
   const [customResolution, setCustomResolution] = useState('')
-  const [battleFormat, setBattleFormat] = useState<'two-phones' | 'one-phone'>('two-phones')
   const [selectedSide, setSelectedSide] = useState<'affirmative' | 'negative' | 'random'>('random')
 
   // Loading and error states
@@ -40,7 +43,17 @@ export default function NewDebatePage() {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Step 1 → 2: user picks a topic, we fetch resolutions from Claude
+  // Step 1: choose a format. One-phone is its own flow on a separate route;
+  // two-phone continues through the topic/resolution/side steps below.
+  function handleFormatSelect(format: 'two-phones' | 'one-phone') {
+    if (format === 'one-phone') {
+      router.push('/debate/live')
+      return
+    }
+    setStep(2)
+  }
+
+  // Step 2 → 3: user picks a topic, we fetch resolutions from Claude
   async function handleTopicSelect(topic: string) {
     setSelectedTopic(topic)
     setLoadingResolutions(true)
@@ -58,7 +71,7 @@ export default function NewDebatePage() {
 
       const { resolutions } = await res.json()
       setResolutions(resolutions)
-      setStep(2)
+      setStep(3)
     } catch {
       setError('Failed to generate resolutions. Please try again.')
     } finally {
@@ -66,22 +79,16 @@ export default function NewDebatePage() {
     }
   }
 
-  // Step 2 → 3: user picks or writes a resolution
+  // Step 3 → 4: user picks or writes a resolution
   function handleResolutionSelect(resolution: string) {
     setSelectedResolution(resolution)
     setCustomResolution('')
-    setStep(3)
+    setStep(4)
   }
 
   function handleCustomResolutionSubmit() {
     if (!customResolution.trim()) return
     setSelectedResolution(customResolution.trim())
-    setStep(3)
-  }
-
-  // Step 3 → 4: user picks a battle format
-  function handleFormatSelect(format: 'two-phones' | 'one-phone') {
-    setBattleFormat(format)
     setStep(4)
   }
 
@@ -99,7 +106,7 @@ export default function NewDebatePage() {
       ? (Math.random() > 0.5 ? 'affirmative' : 'negative')
       : selectedSide
 
-    // Insert the debate into the database
+    // Insert the debate into the database (format defaults to 'two_phone')
     const { data: debate, error: debateError } = await supabase
       .from('debates')
       .insert({
@@ -169,11 +176,47 @@ export default function NewDebatePage() {
           </div>
         )}
 
-        {/* ── Step 1: Pick a topic area ── */}
+        {/* ── Step 1: Choose battle format ── */}
         {step === 1 && (
           <div>
+            <h1 className="text-2xl font-bold mb-2">How do you want to debate?</h1>
+            <p className="text-gray-400 mb-8">Pick the format that fits your situation.</p>
+
+            <div className="flex flex-col gap-3">
+
+              {/* Two phones — the original async, structured flow */}
+              <button
+                onClick={() => handleFormatSelect('two-phones')}
+                className="border border-gray-800 bg-gray-900 hover:bg-gray-800 rounded-xl p-5 text-left transition-colors"
+              >
+                <div className="font-semibold text-white mb-1">Two Phones</div>
+                <div className="text-sm text-gray-400">
+                  Pick a topic and share a link. Each person records timed opening and
+                  rebuttal speeches on their own device, whenever they&apos;re ready.
+                </div>
+              </button>
+
+              {/* One phone — the in-person, free-form flow */}
+              <button
+                onClick={() => handleFormatSelect('one-phone')}
+                className="border border-gray-800 bg-gray-900 hover:bg-gray-800 rounded-xl p-5 text-left transition-colors"
+              >
+                <div className="font-semibold text-white mb-1">One Phone</div>
+                <div className="text-sm text-gray-400">
+                  In person, right now. Put one phone between you, argue it out loud, and
+                  let the AI judge separate your voices and score it.
+                </div>
+              </button>
+
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 2: Pick a topic area ── */}
+        {step === 2 && (
+          <div>
             <h1 className="text-2xl font-bold mb-2">Choose a topic area</h1>
-            <p className="text-gray-400 mb-8">We'll generate debate resolutions based on your choice.</p>
+            <p className="text-gray-400 mb-8">We&apos;ll generate debate resolutions based on your choice.</p>
 
             {loadingResolutions ? (
               <div className="text-center py-20 text-gray-400">
@@ -195,8 +238,8 @@ export default function NewDebatePage() {
           </div>
         )}
 
-        {/* ── Step 2: Pick a resolution ── */}
-        {step === 2 && (
+        {/* ── Step 3: Pick a resolution ── */}
+        {step === 3 && (
           <div>
             <h1 className="text-2xl font-bold mb-2">Choose a resolution</h1>
             <p className="text-gray-400 mb-2">
@@ -236,40 +279,6 @@ export default function NewDebatePage() {
                   Use this
                 </button>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Step 3: Choose battle format ── */}
-        {step === 3 && (
-          <div>
-            <h1 className="text-2xl font-bold mb-2">How do you want to battle?</h1>
-            <p className="text-gray-400 mb-8">Choose how you and your opponent will record your speeches.</p>
-
-            <div className="flex flex-col gap-3">
-
-              {/* Two phones — the original async flow */}
-              <button
-                onClick={() => handleFormatSelect('two-phones')}
-                className="border border-gray-800 bg-gray-900 hover:bg-gray-800 rounded-xl p-5 text-left transition-colors"
-              >
-                <div className="font-semibold text-white mb-1">Two Phones</div>
-                <div className="text-sm text-gray-400">
-                  Share a link with your opponent. Each person records on their own device, whenever they're ready.
-                </div>
-              </button>
-
-              {/* One phone — coming soon */}
-              <div className="border border-gray-800 bg-gray-900 rounded-xl p-5 text-left opacity-50 cursor-not-allowed relative">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-semibold text-white">One Phone</span>
-                  <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">Coming soon</span>
-                </div>
-                <div className="text-sm text-gray-400">
-                  Both debaters take turns recording on the same device, face to face.
-                </div>
-              </div>
-
             </div>
           </div>
         )}

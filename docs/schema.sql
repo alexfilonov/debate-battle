@@ -6,8 +6,10 @@ create table allowlist (
 -- Debates table: stores each debate session
 create table debates (
   id uuid primary key default gen_random_uuid(),
-  topic_area text not null,           -- e.g. "U.S. Politics"
-  resolution text not null,           -- e.g. "Sports gambling should be made illegal"
+  -- 'two_phone' = original async structured flow; 'one_phone' = in-person live mode
+  format text not null default 'two_phone' check (format in ('two_phone', 'one_phone')),
+  topic_area text,                    -- e.g. "U.S. Politics" (null for one-phone — Claude infers it)
+  resolution text,                    -- e.g. "Sports gambling should be made illegal" (null for one-phone)
   status text not null default 'waiting', -- waiting | in_progress | complete
   created_by uuid references auth.users(id),
   created_at timestamp with time zone default now()
@@ -59,12 +61,25 @@ create table judgements (
   created_at timestamp with time zone default now()
 );
 
+-- Live results: one-phone (in-person) debate mode. Kept separate from the
+-- participant-based tables above because one-phone debates have NO participant
+-- rows — there's a single logged-in holder plus two anonymous diarized voices.
+create table live_results (
+  debate_id uuid primary key references debates(id) on delete cascade,
+  transcript jsonb not null,   -- diarized segments: [{ speaker: 'A'|'B', text }]
+  inferred_topic text,         -- what Claude decided they were arguing about
+  winner text check (winner in ('pro', 'con')),
+  verdict jsonb,               -- per-side rubric scores, per-speaker feedback, summary
+  created_at timestamp with time zone default now()
+);
+
 -- Enable Row Level Security on all tables
 alter table allowlist enable row level security;
 alter table debates enable row level security;
 alter table debate_participants enable row level security;
 alter table speeches enable row level security;
 alter table judgements enable row level security;
+alter table live_results enable row level security;
 
 -- Membership helper: returns true if the current user is a participant of the
 -- given debate. Declared SECURITY DEFINER so the inner query runs as the
@@ -135,11 +150,20 @@ create policy "Participants can view judgements"
   on judgements for select
   using ( public.is_debate_participant(judgements.debate_id) );
 
+-- Live results: only the holder (debates.created_by) can read their one-phone
+-- result. No participant rows exist in this mode, so access is keyed on
+-- created_by rather than is_debate_participant().
+create policy "Owner can view their live result"
+  on live_results for select
+  using (auth.uid() = (select created_by from debates where id = live_results.debate_id));
+
 -- ── Storage RLS (private 'speeches' bucket) ──────────────────────────────────
 -- The Storage API rejects the new sb_secret service-role key ("Invalid Compact
 -- JWS"), so speech audio is uploaded/read with the user's authenticated JWT.
 -- Path layout is {debateId}/{userId}-round{n}.webm, so foldername(name)[1] is
 -- the debate id; a user may only touch files in a debate they participate in.
+-- (One-phone mode does NOT use storage — its audio is streamed straight to
+-- AssemblyAI and discarded, never persisted.)
 
 create policy "Participants can upload speech audio"
   on storage.objects for insert
@@ -180,6 +204,7 @@ grant select, insert, update on public.debates to authenticated;
 grant select, insert on public.debate_participants to authenticated;
 grant select, insert on public.speeches to authenticated;
 grant select on public.judgements to authenticated;   -- verdicts are written server-side only
+grant select on public.live_results to authenticated; -- one-phone results, written server-side only
 grant select on public.allowlist to authenticated;
 
 -- Service role (trusted server code) bypasses RLS and needs full access:

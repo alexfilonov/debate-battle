@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
-import type { Judgement, ClashPoint, ClashResponse, SideAnalysis, Side } from '@/lib/supabase'
+import type { Judgement, ClashPoint, ClashResponse, SideAnalysis, Side, LiveResult } from '@/lib/supabase'
+import LiveVerdict from '@/components/LiveVerdict'
 
 type PageState = 'loading' | 'judging' | 'done' | 'error'
 
@@ -20,12 +21,37 @@ export default function JudgePage() {
   const [mySide, setMySide] = useState<Side | null>(null)
   const [iWon, setIWon] = useState<boolean | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [liveResult, setLiveResult] = useState<LiveResult | null>(null)
 
   useEffect(() => {
     async function loadOrJudge() {
       const supabase = createSupabaseBrowserClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/'); return }
+
+      // One-phone debates are judged at creation and have no participants or
+      // judgements row — load their result and render the live verdict instead.
+      const { data: debate } = await supabase
+        .from('debates')
+        .select('format')
+        .eq('id', id)
+        .single()
+
+      if (debate?.format === 'one_phone') {
+        const { data: lr } = await supabase
+          .from('live_results')
+          .select('*')
+          .eq('debate_id', id)
+          .single()
+        if (lr) {
+          setLiveResult(lr as LiveResult)
+          setPageState('done')
+          return
+        }
+        setErrorMsg('Result not found.')
+        setPageState('error')
+        return
+      }
 
       // Find this user's side in the debate
       const { data: participant } = await supabase
@@ -121,6 +147,9 @@ export default function JudgePage() {
       </div>
     )
   }
+
+  // One-phone (in-person) verdict — rendered from live_results, not judgements.
+  if (liveResult) return <LiveVerdict result={liveResult} />
 
   if (!judgement) return null
 
