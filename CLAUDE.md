@@ -93,6 +93,15 @@ All in `.env.local` (gitignored):
 - Write comments throughout code so the developer can follow along
 - Use Server Components by default; only add 'use client' when handling events or browser APIs
 
+## Git workflow
+- Alex's working branch is `alex/main`. Always commit and push to `alex/main`, never directly to `main`.
+- When a feature is done and tested locally, merge `alex/main` → `main` to trigger a Vercel production deploy.
+- Zach works on `zach/`-prefixed branches and opens PRs to `main`. Before merging any of Zach's PRs:
+  1. Read every changed file in the PR
+  2. Check that the two-phone async flow still works (nothing in `app/debate/[id]/`, `components/SpeechRecorder.tsx`, or `app/api/` is broken)
+  3. Check that no secrets or `.env` values are hardcoded
+  4. Flag any concerns before merging — don't approve blindly
+
 ## Important notes
 - Next.js 16 has breaking changes from v15 — use Context7 for up-to-date docs. middleware.ts is now proxy.ts, export function name is `proxy` not `middleware`
 - AssemblyAI: always fetch https://www.assemblyai.com/docs/llms.txt before writing AssemblyAI code — their parameter names change, don't rely on memory. Pre-recorded and Streaming products use the raw API key (no `Bearer` prefix); only the Voice Agent API uses `Bearer`. The one-phone (in-person) debate mode uses the **pre-recorded transcription API with speaker diarization** (`speaker_labels`), NOT the Voice Agent API. Reference: docs/assemblyai-voice-agent.md
