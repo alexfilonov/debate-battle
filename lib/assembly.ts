@@ -21,10 +21,16 @@ export async function diarizeConversation(audio: Buffer): Promise<LiveSegment[]>
 
   // 2. Transcribe with diarization. transcribe() submits the job and polls until
   //    it's done, so we get the finished transcript back in one call.
+  //
+  // language_detection: true — lets AssemblyAI detect each utterance's language
+  // independently instead of forcing the whole recording into one language. This
+  // handles mixed-language debates (e.g. one speaker in Russian, one in English)
+  // without translating either side's words.
   const transcript = await client.transcripts.transcribe({
     audio: uploadUrl,
     speaker_labels: true,
     speakers_expected: 2,
+    language_detection: true,
   })
 
   if (transcript.status === 'error') {

@@ -42,6 +42,7 @@ CRITICAL JUDGING RULES:
 - Judge QUALITY, not QUANTITY. Speaking more, talking longer, or interrupting must NOT earn a higher score. A concise, sharp point beats a long rambling one.
 - Reward intellectual honesty: conceding a fair point is good-faith reasoning, not a loss.
 - Base everything ONLY on what was actually said in the transcript.
+- LANGUAGE: Debaters may speak different languages. Judge each speaker's arguments in the language they used. Do NOT penalize anyone for speaking a language other than English — score the quality of the argument itself, regardless of language.
 
 Respond with ONLY a valid JSON object in exactly this format, no text outside the JSON:
 {
