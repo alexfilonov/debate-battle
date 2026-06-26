@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
+import ScrollVelocity from '@/components/ScrollVelocity'
 
 
 // ─── Rotating debate questions ────────────────────────────────────────────────
@@ -248,7 +249,7 @@ function LandingPageInner() {
     import('animejs').then(({ animate, utils }) => {
       animate('.reveal-item', {
         opacity: [0, 1],
-        translateY: ['1rem', 0],
+
         delay: utils.stagger(110, { start: 320 }),
         ease: 'easeOutCubic',
         duration: 480,
@@ -298,21 +299,19 @@ function LandingPageInner() {
     >
 
       {/* ── Hero section ──────────────────────────────────────────────────────
-          Sits vertically centered before reveal. On reveal, paddingTop shrinks
-          so the title floats upward, making room for the content below. */}
+          Title is vertically centered before reveal. paddingTop shrinks on
+          reveal to float the title upward. Scroll bands are position:absolute
+          so they never affect layout — no height animation, no bounce. */}
       <div
         style={{
-          paddingTop: revealed ? 'calc(50vh - 220px)' : 'calc(50vh - 110px)',
+          paddingTop: revealed ? 'calc(50vh - 200px)' : 'calc(50vh - 100px)',
           paddingBottom: revealed ? '2.5rem' : '0',
           transition: 'padding 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
         <div className="w-full text-center px-6">
 
-          {/* Rotating question ──────────────────────────────────────────────
-              Always rendered (even before a question is picked) so the title
-              doesn't jump when the first question appears. minHeight reserves
-              the line's space while the string is empty. */}
+          {/* Rotating question — fades out on reveal */}
           <div className="mb-3">
             <p style={{
               fontFamily: 'var(--font-playfair)',
@@ -337,62 +336,93 @@ function LandingPageInner() {
             </p>
           </div>
 
-          {/* App title ───────────────────────────────────────────────────── */}
-          <h1
-            className="leading-none"
-            style={{
-              fontFamily: 'var(--font-bebas)',
-              fontSize: 'clamp(3.5rem, 12vw, 8rem)',
-              lineHeight: 1,
-              display: 'block',
-            }}
-          >
-            debatable
-            {/* CSS Grid trick ─────────────────────────────────────────────
-                display:inline-grid stacks the period and the triangle in the
-                exact same grid cell (gridArea: '1/1'). The period always
-                renders so it naturally sizes the cell — the triangle sits in
-                that same space at the baseline. No guesswork on positioning.
-                Clicking anywhere on this element triggers the reveal. */}
-            <span
-              onClick={!revealed ? () => setRevealed(true) : undefined}
-              style={{ display: 'inline-grid', cursor: revealed ? 'default' : 'pointer', verticalAlign: 'baseline' }}
-            >
-              {/* Period — hidden before reveal, fades in after */}
-              <span style={{
-                gridArea: '1/1',
-                color: 'var(--color-verdict)',
-                opacity: revealed ? 1 : 0,
-                transition: 'opacity 0.15s ease',
+          {/* App title — position:relative so the scroll band can anchor to it */}
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+
+            {/* Scroll band running through the vertical center of the title.
+                position:absolute removes it from flow so it never shifts the title.
+                z-index:0 puts it behind the h1 (z-index:1). Always visible. */}
+            <div style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '100vw',
+              zIndex: 0,
+              opacity: revealed ? 1 : 0,
+              transition: 'opacity 0.6s ease 0.2s',
+              pointerEvents: 'none',
+            }}>
+              <ScrollVelocity
+                text={QUESTIONS.join('  ·  ')}
+                velocity={-55}
+                textStyle={{
+                  fontFamily: 'var(--font-bebas)',
+                  fontSize: 'clamp(1.4rem, 3.5vw, 2rem)',
+                  color: 'var(--color-text-muted)',
+                  letterSpacing: '0.05em',
+                }}
+              />
+            </div>
+
+            <h1
+              className="leading-none"
+              style={{
                 fontFamily: 'var(--font-bebas)',
-              }}>.</span>
-
-              {/* Triangle arrow — visible before reveal, pulses to invite a click.
-                  alignItems: flex-end pushes it to the bottom of the cell so it
-                  sits at the baseline where the period would be. */}
-              <span style={{
-                gridArea: '1/1',
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'center',
-                paddingBottom: '0.07em',
-                opacity: revealed ? 0 : 1,
-                transition: 'opacity 0.15s ease',
-                animation: revealed ? 'none' : 'pulse-arrow 1.8s ease-in-out infinite',
-                pointerEvents: revealed ? 'none' : 'auto',
-              }}>
-                {/* clipPath triangle — cleaner than the CSS border trick */}
+                fontSize: 'clamp(3.5rem, 12vw, 8rem)',
+                lineHeight: 1,
+                display: 'block',
+                position: 'relative',
+                zIndex: 1,
+              }}
+            >
+              debatable
+              {/* CSS Grid trick ─────────────────────────────────────────────
+                  display:inline-grid stacks the period and the triangle in the
+                  exact same grid cell (gridArea: '1/1'). The period always
+                  renders so it naturally sizes the cell — the triangle sits in
+                  that same space at the baseline. No guesswork on positioning.
+                  Clicking anywhere on this element triggers the reveal. */}
+              <span
+                onClick={!revealed ? () => setRevealed(true) : undefined}
+                style={{ display: 'inline-grid', cursor: revealed ? 'default' : 'pointer', verticalAlign: 'baseline' }}
+              >
+                {/* Period — hidden before reveal, fades in after */}
                 <span style={{
-                  display: 'inline-block',
-                  width: '0.22em',
-                  height: '0.18em',
-                  background: 'var(--color-verdict)',
-                  clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)',
-                }} />
-              </span>
-            </span>
-          </h1>
+                  gridArea: '1/1',
+                  color: 'var(--color-verdict)',
+                  opacity: revealed ? 1 : 0,
+                  transition: 'opacity 0.15s ease',
+                  fontFamily: 'var(--font-bebas)',
+                }}>.</span>
 
+                {/* Triangle arrow — visible before reveal, pulses to invite a click.
+                    alignItems: flex-end pushes it to the bottom of the cell so it
+                    sits at the baseline where the period would be. */}
+                <span style={{
+                  gridArea: '1/1',
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  justifyContent: 'center',
+                  paddingBottom: '0.07em',
+                  opacity: revealed ? 0 : 1,
+                  transition: 'opacity 0.15s ease',
+                  animation: revealed ? 'none' : 'pulse-arrow 1.8s ease-in-out infinite',
+                  pointerEvents: revealed ? 'none' : 'auto',
+                }}>
+                  {/* clipPath triangle — cleaner than the CSS border trick */}
+                  <span style={{
+                    display: 'inline-block',
+                    width: '0.22em',
+                    height: '0.18em',
+                    background: 'var(--color-verdict)',
+                    clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)',
+                  }} />
+                </span>
+              </span>
+            </h1>
+
+          </div>
         </div>
       </div>
 
@@ -400,14 +430,7 @@ function LandingPageInner() {
           Wrapper just controls pointer events. Each child animates in
           independently via Anime.js stagger when revealed becomes true. */}
       <div style={{ pointerEvents: revealed ? 'auto' : 'none' }}>
-        <div className="w-full max-w-lg mx-auto px-6 text-center pb-16">
-
-          <p className="reveal-item text-xs uppercase mb-4" style={{ letterSpacing: '0.2em', color: 'var(--color-text-muted)', opacity: 0 }}>
-            Make your case. Let the record show.
-          </p>
-          <p className="reveal-item text-sm mb-10" style={{ color: 'var(--color-text-muted)', opacity: 0 }}>
-            Record your speeches, challenge a friend, and let an AI judge decide who made the stronger case.
-          </p>
+        <div className="w-full max-w-lg mx-auto px-6 text-center pb-16" style={{ paddingTop: '0' }}>
 
           {/* Auth error message (e.g. email not on allowlist) */}
           {errorMessage && (
@@ -419,20 +442,24 @@ function LandingPageInner() {
           <button
             onClick={handleSignIn}
             disabled={loading}
-            className="reveal-item w-full flex items-center justify-center gap-3 bg-white text-gray-900 font-semibold py-3 px-6 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ opacity: 0 }}
+            className="reveal-item w-full py-2.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{
+              opacity: 0,
+              background: 'transparent',
+              border: '1px solid #3f3f3f',
+              color: '#9a9a9a',
+              fontFamily: 'var(--font-bebas)',
+              fontSize: 'clamp(1.1rem, 2.5vw, 1.4rem)',
+              letterSpacing: '0.18em',
+              transition: 'border-color 0.2s ease, color 0.2s ease',
+            }}
+            onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#6b6b6b'; (e.currentTarget as HTMLButtonElement).style.color = '#d4d4d4' } }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3f3f3f'; (e.currentTarget as HTMLButtonElement).style.color = '#9a9a9a' }}
           >
-            {/* Google logo SVG — each path is one color of the Google G */}
-            <svg width="20" height="20" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-            </svg>
-            {loading ? 'Signing in...' : 'Sign in with Google'}
+            {loading ? 'Hang on...' : 'You in?'}
           </button>
 
-          <p className="reveal-item text-xs mt-4" style={{ color: 'var(--color-text-subtle)', opacity: 0 }}>Access is invite-only.</p>
+          <p className="reveal-item text-xs mt-3" style={{ color: 'var(--color-text-subtle)', opacity: 0, letterSpacing: '0.1em' }}>via Google · invite only</p>
         </div>
       </div>
 
