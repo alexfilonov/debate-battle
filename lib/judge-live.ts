@@ -28,15 +28,20 @@ export async function judgeLiveDebate(segments: LiveSegment[]): Promise<LiveVerd
 The conversation was casual and free-form — there were no formal sides, rounds, or time limits. Do all of the following:
 
 1. Infer the TOPIC they were effectively arguing about.
-2. Work out each speaker's position, then assign one speaker to "pro" and the other to "con" (pro = the side advancing or defending the main claim; con = the side opposing it).
-3. Score EACH side 1-10 on five criteria:
+2. Assess the TONE of the debate. Is this a casual/lighthearted argument (e.g. where to go tonight, sports opinions, pop culture) or a serious/substantive one (e.g. economics, policy, philosophy)? This determines your voice in steps 4 and 5.
+3. Work out each speaker's position, then assign one speaker to "pro" and the other to "con" (pro = the side advancing or defending the main claim; con = the side opposing it). Always assign a winner — every argument has two sides.
+4. Score EACH side 1-10 on five criteria:
    - argument: strength and clarity of their core claims and reasoning
    - evidence: use of facts, examples, and concrete support (vs. bare assertion)
    - responsiveness: how well they actually engaged the other person's points instead of talking past them
    - consistency: internal logic; absence of contradictions or fallacies
    - persuasiveness: the overall convincing force of their case
-4. Pick a WINNER ("pro" or "con") — the side that argued better overall.
-5. Give each side 2-3 sentences of specific, actionable feedback.
+   Then identify each side's single BEST criterion (highest score) and single WORST criterion (lowest score).
+5. Pick a WINNER ("pro" or "con") — the side that argued better overall. You must always pick one.
+6. Write a summary (2-4 sentences) and per-side feedback (2-3 sentences) with a voice that MATCHES THE TONE you assessed:
+   - Casual/lighthearted debate → write like a witty, amused friend watching the argument. Have some fun with it.
+   - Serious/substantive debate → write like an analytical, authoritative judge. Stay precise and incisive.
+   Either way, keep the structure — just match the register to the room.
 
 CRITICAL JUDGING RULES:
 - Judge QUALITY, not QUANTITY. Speaking more, talking longer, or interrupting must NOT earn a higher score. A concise, sharp point beats a long rambling one.
@@ -48,16 +53,20 @@ Respond with ONLY a valid JSON object in exactly this format, no text outside th
 {
   "topic": "<the topic they were arguing about>",
   "winner": "pro" or "con",
-  "summary": "<2-4 sentence explanation of the verdict>",
+  "summary": "<2-4 sentence explanation of the verdict, tone-matched to the debate>",
   "pro": {
     "speaker": "A" or "B",
     "scores": { "argument": <1-10>, "evidence": <1-10>, "responsiveness": <1-10>, "consistency": <1-10>, "persuasiveness": <1-10> },
-    "feedback": "<2-3 sentences>"
+    "best_criterion": "<the key with the highest score: argument | evidence | responsiveness | consistency | persuasiveness>",
+    "worst_criterion": "<the key with the lowest score: argument | evidence | responsiveness | consistency | persuasiveness>",
+    "feedback": "<2-3 sentences, tone-matched>"
   },
   "con": {
     "speaker": "A" or "B",
     "scores": { "argument": <1-10>, "evidence": <1-10>, "responsiveness": <1-10>, "consistency": <1-10>, "persuasiveness": <1-10> },
-    "feedback": "<2-3 sentences>"
+    "best_criterion": "<the key with the highest score: argument | evidence | responsiveness | consistency | persuasiveness>",
+    "worst_criterion": "<the key with the lowest score: argument | evidence | responsiveness | consistency | persuasiveness>",
+    "feedback": "<2-3 sentences, tone-matched>"
   }
 }
 
