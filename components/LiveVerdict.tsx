@@ -96,11 +96,19 @@ function SidePanel({ label, color, side }: { label: string; color: 'blue' | 'ora
       <div className="flex flex-col gap-3">
         {CRITERIA.map((c) => {
           const v = side.scores[c.key] ?? 0
+          const isBest = side.best_criterion === c.key
+          const isWorst = side.worst_criterion === c.key
           return (
             <div key={c.key}>
-              <div className="flex justify-between text-xs text-gray-400 mb-1">
-                <span>{c.label}</span>
-                <span>{v}</span>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="flex items-center gap-1.5">
+                  <span className={isBest ? 'text-green-400' : isWorst ? 'text-red-400' : 'text-gray-400'}>
+                    {c.label}
+                  </span>
+                  {isBest && <span className="text-green-500 text-xs leading-none">↑ best</span>}
+                  {isWorst && <span className="text-red-500 text-xs leading-none">↓ weakest</span>}
+                </span>
+                <span className={isBest ? 'text-green-400' : isWorst ? 'text-red-400' : 'text-gray-400'}>{v}</span>
               </div>
               <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                 <div className={`h-full rounded-full ${barColor}`} style={{ width: `${v * 10}%` }} />

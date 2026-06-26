@@ -37,9 +37,12 @@ export type LiveScores = {
 }
 
 // One side's result. `speaker` is which diarized voice (A/B) Claude assigned here.
+// best_criterion / worst_criterion are optional so old stored verdicts still render.
 export type LiveSideVerdict = {
   speaker: string
   scores: LiveScores
+  best_criterion?: keyof LiveScores
+  worst_criterion?: keyof LiveScores
   feedback: string
 }
 
