@@ -215,7 +215,7 @@ export default async function DashboardPage() {
       </nav>
 
       {/* ── Body: rail (sidebar on lg / summary card on mobile) + feed ──── */}
-      <div className="lg:grid" style={{ gridTemplateColumns: '300px 1fr' }}>
+      <div className="lg:grid lg:max-w-6xl lg:mx-auto" style={{ gridTemplateColumns: '300px 1fr' }}>
 
         {/* DESKTOP RAIL ------------------------------------------------------ */}
         <aside
