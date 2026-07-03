@@ -18,6 +18,10 @@
   --color-side-b: #2563eb;    /* blue — used for Side B */
   --color-verdict: #d97706;   /* amber — used for the AI judge verdict */
   --color-verdict-muted: rgba(217, 119, 6, 0.15);
+
+  /* A half-shade brighter amber for the sign-in button's hover/lift, paired
+     with the verdict amber so the CTA reads as the judge's stamp. */
+  --color-verdict-hover: #f59e0b;
 }
 
 @theme inline {
@@ -51,4 +55,66 @@ body {
 @keyframes cursor-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
+}
+
+/* Landing page: keyboard focus ring for the click-to-enter wordmark.
+   :focus-visible only — mouse clicks don't get the ring, keyboard users do. */
+.reveal-trigger:focus-visible {
+  outline: 2px solid var(--color-verdict);
+  outline-offset: 0.12em;
+  border-radius: 6px;
+}
+
+/* Respect the OS "reduce motion" setting: stop the looping CSS animations (the
+   triangle pulse, the cursor blink) and collapse transitions to ~instant, so the
+   page snaps to its end state instead of animating there. The JS-driven motion
+   (typewriter, staggered reveal, marquee scroll) is gated separately in the
+   components via motion/react's useReducedMotion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Landing page: sign-in. The judge's verdict, struck as a stamp — near-black
+   "You in?" on the amber that rules every Debatable verdict (the same amber as
+   the "debatable." period). Auto-width and composed, so it has real presence
+   without turning the page loud: it screams the brand, politely. Hover lifts it
+   on a soft amber glow; the surface stays calm, the conviction shows on intent. */
+.signin-btn {
+  display: inline-block;
+  background: var(--color-verdict);
+  color: var(--color-base);
+  border: none;
+  border-radius: 999px;
+  padding: 0.85rem 2.5rem 0.95rem;
+  font-family: var(--font-bebas);
+  font-size: clamp(1.25rem, 3vw, 1.55rem);
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.signin-btn:hover:not(:disabled),
+.signin-btn:focus-visible:not(:disabled) {
+  background: var(--color-verdict-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px -12px rgba(217, 119, 6, 0.55);
+}
+.signin-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 4px 14px -10px rgba(217, 119, 6, 0.5);
+}
+.signin-btn:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 3px;
+}
+/* Working ("Hang on..."): mute the stamp to a dark chip rather than dimming
+   opacity — Anime.js owns the button's inline opacity for the reveal fade. */
+.signin-btn:disabled {
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
 }

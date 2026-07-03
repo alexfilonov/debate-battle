@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
+import { useReducedMotion } from 'motion/react'
 import ScrollVelocity from '@/components/ScrollVelocity'
 
 
@@ -179,6 +180,29 @@ const QUESTIONS = [
   'Should felons be allowed to vote?',
   'Is nuclear energy the only realistic path to clean energy?',
   'Was the American Revolution just a tax dispute with good PR?',
+
+  // A-tier — the reframe that wins. Name the thing, then re-describe it until
+  // the argument's over. Dry, certain, never just loud.
+  'Is a smoothie just a salad that gave up?',
+  'Is brunch just breakfast with a drinking problem?',
+  'Is decaf just coffee cosplay?',
+  'Is a salad just punishment you ordered for yourself?',
+  'Is networking just small talk with a spreadsheet?',
+  'Is a meeting just an email that refused to die?',
+  'Is a startup just a group project that found money?',
+  'Is a cover letter just fan fiction about yourself?',
+  'Is a life coach just a friend with an invoice?',
+  'Is self-care just shopping with a permission slip?',
+  'Is a tip just a bribe with better manners?',
+  'Is jazz just music that refuses to land the plane?',
+  'Is a museum just a warehouse with better lighting?',
+  'Is a turtleneck just a scarf that committed?',
+  'Is being busy a personality now?',
+  'Is gatekeeping just having standards out loud?',
+  'Is "doing your own research" just confirmation bias with extra steps?',
+  'Is "agree to disagree" just surrender dressed up?',
+  'Is "let\'s circle back" a threat?',
+  'Is "per my last email" the most violent phrase in the language?',
 ]
 
 // SessionStorage keys for the shuffle queue.
@@ -217,6 +241,19 @@ function getNextQuestion(): string {
   }
 }
 
+// ─── Click-gate dares ─────────────────────────────────────────────────────────
+// Shown if the user lingers on the wordmark without clicking. Goading, but cool —
+// dry and certain, never crude. One is picked at random on each load. The gap
+// between how composed the page looks and how much the line dares you is the point.
+const NUDGES = [
+  'or don\'t',
+  'all talk?',
+  'scared?',
+  'bet you won\'t',
+  'we\'ll wait',
+  'you won\'t',
+]
+
 // ─── Landing page ─────────────────────────────────────────────────────────────
 // Wrapped in <Suspense> because useSearchParams() requires it in the Next.js app router.
 function LandingPageInner() {
@@ -225,27 +262,38 @@ function LandingPageInner() {
   const [displayedChars, setDisplayedChars] = useState(0)     // how many characters have typed out so far
   const [revealed, setRevealed] = useState(false)             // true once the user clicks the arrow
   const [scrollUnlocked, setScrollUnlocked] = useState(false) // true once the reveal animation finishes
+  const [showNudge, setShowNudge] = useState(false)           // whether the lingering hint is currently faded in
+  const [nudge, setNudge] = useState('')                      // which dare this load got (picked on mount)
+  const [pointerFine, setPointerFine] = useState(false)       // true on mouse-driven devices (not touch)
+  const reducedMotion = useReducedMotion()                    // honor the OS "reduce motion" setting
   const searchParams = useSearchParams()
+  const cursorRef = useRef<HTMLDivElement>(null)   // the custom compass-arrow cursor
+  const arrowTargetRef = useRef<HTMLSpanElement>(null) // the orange triangle it points at
 
   // After the arrow is clicked, wait for the reveal animation to finish (~950ms)
   // before removing the maxHeight cap. Without this delay, the page briefly flashes
   // a scrollbar as the below-fold content becomes visible mid-animation.
   useEffect(() => {
     if (!revealed) return
+    // Reduced motion: there's no reveal animation to wait out — unlock at once.
+    if (reducedMotion) { setScrollUnlocked(true); return }
     const t = setTimeout(() => setScrollUnlocked(true), 950)
     return () => clearTimeout(t)
-  }, [revealed])
+  }, [revealed, reducedMotion])
 
   // Pick a question on mount. Must run client-side because sessionStorage
   // doesn't exist on the server.
   useEffect(() => {
     setQuestion(getNextQuestion())
+    setNudge(NUDGES[Math.floor(Math.random() * NUDGES.length)])
   }, [])
 
   // Staggered content reveal: animate each element below the title in sequence
   // when the arrow is clicked, instead of fading the whole block at once.
   useEffect(() => {
-    if (!revealed) return
+    // Reduced motion: skip the staggered fade — the reveal items are shown
+    // directly via their opacity below, so there's nothing to animate.
+    if (!revealed || reducedMotion) return
     import('animejs').then(({ animate, utils }) => {
       animate('.reveal-item', {
         opacity: [0, 1],
@@ -255,11 +303,13 @@ function LandingPageInner() {
         duration: 480,
       })
     })
-  }, [revealed])
+  }, [revealed, reducedMotion])
 
   // Typewriter effect: reveal one character every 18ms until the full question is shown.
   useEffect(() => {
     if (!question) return
+    // Reduced motion: skip the typewriter, show the whole question at once.
+    if (reducedMotion) { setDisplayedChars(question.length); return }
     setDisplayedChars(0)
     let chars = 0
     const interval = setInterval(() => {
@@ -268,7 +318,54 @@ function LandingPageInner() {
       if (chars >= question.length) clearInterval(interval)
     }, 18)
     return () => clearInterval(interval)
-  }, [question])
+  }, [question, reducedMotion])
+
+  // Click-gate nudge: once the question has finished typing, wait a beat and — if
+  // the user still hasn't entered — fade in a quiet "go on" so the gate is
+  // discoverable without nagging. Hidden again the instant the reveal fires.
+  useEffect(() => {
+    if (!question || revealed) return
+    if (displayedChars < question.length) return
+    const t = setTimeout(() => setShowNudge(true), 2400)
+    return () => clearTimeout(t)
+  }, [question, displayedChars, revealed])
+
+  // Detect a mouse-driven device (vs. touch) once on mount — the compass
+  // cursor only makes sense where a real pointer is moving continuously.
+  useEffect(() => {
+    setPointerFine(window.matchMedia('(pointer: fine)').matches)
+  }, [])
+
+  // Compass cursor: while in Stage 1, replace the system cursor with a small
+  // arrow that continuously rotates to face the orange triangle, wherever the
+  // mouse is. Driven imperatively via refs (not state) so it can update every
+  // mousemove frame without re-rendering the component.
+  useEffect(() => {
+    if (revealed || !pointerFine) return
+    const cursorEl = cursorRef.current
+    if (!cursorEl) return
+
+    function handleMove(e: MouseEvent) {
+      const target = arrowTargetRef.current
+      if (!target) return
+      const rect = target.getBoundingClientRect()
+      const targetX = rect.left + rect.width / 2
+      const targetY = rect.top + rect.height / 2
+      const angle = Math.atan2(targetY - e.clientY, targetX - e.clientX) * (180 / Math.PI)
+      cursorEl!.style.transform = `translate(${e.clientX - 11}px, ${e.clientY - 11}px) rotate(${angle}deg)`
+      cursorEl!.style.opacity = '1'
+    }
+    function handleLeave() {
+      cursorEl!.style.opacity = '0'
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseleave', handleLeave)
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseleave', handleLeave)
+    }
+  }, [revealed, pointerFine])
 
   // Parse any auth error codes the OAuth callback passes back via URL params.
   const urlError = searchParams.get('error')
@@ -289,14 +386,51 @@ function LandingPageInner() {
     if (error) setLoading(false)
   }
 
+  // Opens the page. Fired by clicking — or keying Enter/Space on — the wordmark.
+  // The whole word is the target, not just the triangle, so it's a big, obvious hit.
+  function reveal() {
+    if (!revealed) setRevealed(true)
+  }
+
   return (
     <main
       className="overflow-hidden"
       // Cap height to the viewport before the arrow is clicked so the hidden
       // revealed content (below the fold) can't be scrolled to early.
       // Uses CSS color tokens so the theme can be updated from globals.css.
-      style={{ minHeight: '100vh', maxHeight: scrollUnlocked ? 'none' : '100vh', background: 'var(--color-base)', color: 'var(--color-text)' }}
+      style={{
+        minHeight: '100vh',
+        maxHeight: scrollUnlocked ? 'none' : '100vh',
+        background: 'var(--color-base)',
+        color: 'var(--color-text)',
+        cursor: !revealed && pointerFine ? 'none' : 'default',
+      }}
     >
+      {/* Compass cursor — Stage 1 only. Fixed at (0,0) and moved via transform
+          on every mousemove (see effect above) so React never re-renders for
+          mouse motion. Starts hidden (opacity 0) until the first move so it
+          doesn't flash at the origin before the mouse has been touched. */}
+      {pointerFine && !revealed && (
+        <div
+          ref={cursorRef}
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: 22,
+            height: 22,
+            opacity: 0,
+            pointerEvents: 'none',
+            zIndex: 9999,
+            transition: 'opacity 0.2s ease',
+          }}
+        >
+          <svg width="22" height="22" viewBox="0 0 22 22">
+            <polygon points="21,11 2,3 8,11 2,19" fill="var(--color-verdict)" />
+          </svg>
+        </div>
+      )}
 
       {/* ── Hero section ──────────────────────────────────────────────────────
           Title is vertically centered before reveal. paddingTop shrinks on
@@ -305,7 +439,7 @@ function LandingPageInner() {
       <div
         style={{
           paddingTop: revealed ? 'calc(50vh - 200px)' : 'calc(50vh - 100px)',
-          paddingBottom: revealed ? '2.5rem' : '0',
+          paddingBottom: revealed ? '1.25rem' : '0',
           transition: 'padding 0.7s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
@@ -342,7 +476,9 @@ function LandingPageInner() {
             {/* Scroll band running through the vertical center of the title.
                 position:absolute removes it from flow so it never shifts the title.
                 z-index:0 puts it behind the h1 (z-index:1). Always visible. */}
-            <div style={{
+            <div
+              aria-hidden="true"
+              style={{
               position: 'absolute',
               top: '50%',
               left: '50%',
@@ -358,15 +494,25 @@ function LandingPageInner() {
                 velocity={-55}
                 textStyle={{
                   fontFamily: 'var(--font-bebas)',
-                  fontSize: 'clamp(1.4rem, 3.5vw, 2rem)',
-                  color: 'var(--color-text-muted)',
-                  letterSpacing: '0.05em',
+                  // Pushed back into texture: dimmer than the typed question and
+                  // wider-tracked, so it reads as the roar of every other take
+                  // scrolling behind the one that matters — not a second headline.
+                  fontSize: 'clamp(1.25rem, 3vw, 1.75rem)',
+                  color: 'var(--color-text-subtle)',
+                  letterSpacing: '0.08em',
                 }}
               />
             </div>
 
             <h1
-              className="leading-none"
+              className="reveal-trigger leading-none"
+              onClick={!revealed ? reveal : undefined}
+              onKeyDown={!revealed ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reveal() }
+              } : undefined}
+              role={!revealed ? 'button' : undefined}
+              tabIndex={!revealed ? 0 : -1}
+              aria-label={!revealed ? 'Enter Debatable' : undefined}
               style={{
                 fontFamily: 'var(--font-bebas)',
                 fontSize: 'clamp(3.5rem, 12vw, 8rem)',
@@ -374,6 +520,7 @@ function LandingPageInner() {
                 display: 'block',
                 position: 'relative',
                 zIndex: 1,
+                cursor: revealed ? 'default' : (pointerFine ? 'none' : 'pointer'),
               }}
             >
               debatable
@@ -384,8 +531,7 @@ function LandingPageInner() {
                   that same space at the baseline. No guesswork on positioning.
                   Clicking anywhere on this element triggers the reveal. */}
               <span
-                onClick={!revealed ? () => setRevealed(true) : undefined}
-                style={{ display: 'inline-grid', cursor: revealed ? 'default' : 'pointer', verticalAlign: 'baseline' }}
+                style={{ display: 'inline-grid', verticalAlign: 'baseline' }}
               >
                 {/* Period — hidden before reveal, fades in after */}
                 <span style={{
@@ -399,7 +545,9 @@ function LandingPageInner() {
                 {/* Triangle arrow — visible before reveal, pulses to invite a click.
                     alignItems: flex-end pushes it to the bottom of the cell so it
                     sits at the baseline where the period would be. */}
-                <span style={{
+                <span
+                  ref={arrowTargetRef}
+                  style={{
                   gridArea: '1/1',
                   display: 'flex',
                   alignItems: 'flex-end',
@@ -423,6 +571,32 @@ function LandingPageInner() {
             </h1>
 
           </div>
+
+          {/* Click-gate nudge — fades in a beat after the question finishes typing,
+              and only while the user hasn't entered yet. Quiet on purpose: it
+              rescues the lost without nagging anyone who already gets it.
+              aria-hidden + pointer-events:none — the labelled wordmark is the
+              real control; this is just a cue. Reserves its space at opacity 0
+              so fading in never shifts the layout. */}
+          <p
+            aria-hidden="true"
+            style={{
+              fontFamily: 'var(--font-bebas)',
+              fontSize: 'clamp(0.72rem, 1.5vw, 0.85rem)',
+              letterSpacing: '0.3em',
+              color: 'var(--color-text-subtle)',
+              // Collapses to zero height on reveal so the hidden nudge stops
+              // reserving space between the wordmark and the button.
+              marginTop: revealed ? '0' : '1.75rem',
+              maxHeight: revealed ? '0' : '2rem',
+              overflow: 'hidden',
+              opacity: showNudge && !revealed ? 1 : 0,
+              transition: 'opacity 0.6s ease, max-height 0.5s ease, margin-top 0.5s ease',
+              pointerEvents: 'none',
+            }}
+          >
+            {nudge}
+          </p>
         </div>
       </div>
 
@@ -434,7 +608,7 @@ function LandingPageInner() {
 
           {/* Auth error message (e.g. email not on allowlist) */}
           {errorMessage && (
-            <div className="reveal-item bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-3 mb-6 text-sm" style={{ opacity: 0 }}>
+            <div className="reveal-item bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-3 mb-6 text-sm" style={{ opacity: reducedMotion ? 1 : 0 }}>
               {errorMessage}
             </div>
           )}
@@ -442,24 +616,13 @@ function LandingPageInner() {
           <button
             onClick={handleSignIn}
             disabled={loading}
-            className="reveal-item w-full py-2.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              opacity: 0,
-              background: 'transparent',
-              border: '1px solid #3f3f3f',
-              color: '#9a9a9a',
-              fontFamily: 'var(--font-bebas)',
-              fontSize: 'clamp(1.1rem, 2.5vw, 1.4rem)',
-              letterSpacing: '0.18em',
-              transition: 'border-color 0.2s ease, color 0.2s ease',
-            }}
-            onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLButtonElement).style.borderColor = '#6b6b6b'; (e.currentTarget as HTMLButtonElement).style.color = '#d4d4d4' } }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '#3f3f3f'; (e.currentTarget as HTMLButtonElement).style.color = '#9a9a9a' }}
+            className="signin-btn reveal-item"
+            style={{ opacity: reducedMotion ? 1 : 0 }}
           >
             {loading ? 'Hang on...' : 'You in?'}
           </button>
 
-          <p className="reveal-item text-xs mt-3" style={{ color: 'var(--color-text-subtle)', opacity: 0, letterSpacing: '0.1em' }}>via Google · invite only</p>
+          <p className="reveal-item text-xs mt-3" style={{ color: 'var(--color-text-subtle)', opacity: reducedMotion ? 1 : 0, letterSpacing: '0.1em' }}>via Google · invite only</p>
         </div>
       </div>
 

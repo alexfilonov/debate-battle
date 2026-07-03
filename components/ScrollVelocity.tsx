@@ -9,6 +9,7 @@ import {
   useMotionValue,
   useVelocity,
   useAnimationFrame,
+  useReducedMotion,
 } from 'motion/react'
 
 // Measures the rendered width of a DOM element, updating on resize.
@@ -66,7 +67,9 @@ function VelocityRow({
   })
 
   const directionFactor = useRef(baseVelocity > 0 ? 1 : -1)
+  const shouldReduce = useReducedMotion()
   useAnimationFrame((_, delta) => {
+    if (shouldReduce) return  // hold still when the user asked to reduce motion
     let moveBy = directionFactor.current * Math.abs(baseVelocity) * (delta / 1000)
     if (velocityFactor.get() < 0) directionFactor.current = -1
     else if (velocityFactor.get() > 0) directionFactor.current = 1
