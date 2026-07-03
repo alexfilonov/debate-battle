@@ -136,6 +136,7 @@ export default async function DashboardPage() {
   // 4) Build the feed view-model (newest first; allDebates is already sorted).
   type FeedItem = {
     id: string
+    href: string              // where the row links — /judge for one-phone, room for two-phone
     title: string
     topic: string
     formatLabel: string
@@ -156,6 +157,9 @@ export default async function DashboardPage() {
       const r = liveResults.get(d.id)
       return {
         ...base,
+        // One-phone verdict lives at /judge — link there directly so users
+        // can revisit the verdict after leaving, unlike the two-phone room.
+        href: `/debate/${d.id}/judge`,
         title: r?.inferred_topic || d.resolution || 'In-person debate',
         topic: 'In person',
         score: r ? onePhoneWinnerScore(r) : null,
@@ -167,6 +171,7 @@ export default async function DashboardPage() {
     const c = j && side ? twoPhoneCriteria(j, side) : null
     return {
       ...base,
+      href: `/debate/${d.id}`,
       title: d.resolution || 'Untitled debate',
       topic: d.topic_area || '—',
       side,

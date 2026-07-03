@@ -6,6 +6,7 @@ import type { Side } from '@/lib/supabase'
 
 export type FeedItem = {
   id: string
+  href: string          // destination when the row is clicked (differs by format)
   title: string
   topic: string
   formatLabel: string
@@ -68,7 +69,7 @@ function FeedRow({ item, decided }: { item: FeedItem; decided?: boolean }) {
 
   return (
     <Link
-      href={`/debate/${item.id}`}
+      href={item.href}
       className="flex items-center gap-4 rounded-xl px-4 py-3.5"
       style={{ background: decided ? '#141417' : '#18181b', border: `1px solid rgba(255,255,255,${decided ? '.06' : '.08'})`, color: 'inherit', textDecoration: 'none' }}
     >
