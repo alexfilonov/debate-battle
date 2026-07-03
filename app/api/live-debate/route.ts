@@ -5,10 +5,11 @@ import { diarizeConversation } from '@/lib/assembly'
 import { judgeLiveDebate } from '@/lib/judge-live'
 
 // This route does AssemblyAI diarization + a Claude judging call back-to-back, so
-// it needs the Node runtime and more headroom than a default function. A 3-min
-// clip processes well under this, but give it room.
+// it needs the Node runtime and generous headroom. A full 5-min recording can
+// take 1-2 min to diarize + ~60s to judge, so 120s was too short. 300s is the
+// Vercel platform max and gives us room to spare.
 export const runtime = 'nodejs'
-export const maxDuration = 120
+export const maxDuration = 300
 
 // POST /api/live-debate
 // One-phone (in-person) debate flow, all in one synchronous request:
